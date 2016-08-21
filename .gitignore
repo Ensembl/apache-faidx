@@ -10,6 +10,9 @@
 *.so
 *.so.*
 *.dylib
+*.la
+*.lo
+*.slo
 
 # Executables
 *.exe
