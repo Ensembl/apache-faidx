@@ -2,6 +2,7 @@
  *
  * Module to load Faidx indices and return sub-sequences
  * efficiently.
+ *
  */
 
 #include <httpd.h>
@@ -103,7 +104,7 @@ static int Faidx_handler(request_rec* r) {
     return HTTP_INTERNAL_SERVER_ERROR;
   }
 
-  ap_set_content_type(r, "text/plain;charset=ascii") ;
+  ap_set_content_type(r, "application/json") ;
   /*  ap_rputs(
 	   "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\">\n", r) ;
     ap_rputs(
@@ -133,12 +134,19 @@ static int Faidx_handler(request_rec* r) {
 
     Loc_count = 0;
 
+    /* Start JSON header */
+    ap_rputs( "{\n", r );
+
     /* Find the set we've been asked to look up in */
     set = apr_hash_get(formdata, "set", APR_HASH_KEY_STRING);
     if(set == NULL) {
       ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
 		    "Error, no set specified!");
+      ap_rputs( "    \"Error\": \"No set specified\"\n}\n", r );
       return OK;
+    } else {
+      /* Spit out the set we'll be using in the JSON response */
+      ap_rprintf(r,"    \"set\": \"%s\",\n", set);
     }
 
     /* Go fetch that faidx object */
@@ -161,6 +169,7 @@ static int Faidx_handler(request_rec* r) {
     if(val == NULL) {
       ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
 		    "Error, no location(s) specified!");
+      ap_rputs( "    \"Error\": \"No location(s) specified\"\n}\n", r );
       return OK;
     }
 
@@ -185,9 +194,9 @@ static int Faidx_handler(request_rec* r) {
 
       if(*seq_len >= 0) {
       /* We received a result */
-        ap_rprintf(r, "%s: %s\n", key, seq);
+        ap_rprintf(r, "    \"%s\": \"%s\"\n", key, seq);
       } else {
-        ap_rprintf(r, "%s: ERROR\n", key);
+        ap_rprintf(r, "    \"%s\": \"ERROR\"\n", key);
       }
     }
 
@@ -196,8 +205,12 @@ static int Faidx_handler(request_rec* r) {
 
       Loc_count++;
   }
-      /*  ap_rputs("</body></html>", r) ;*/
-      return OK;
+
+    /* Close the JSON */
+    ap_rputs( "}\n", r );
+
+    /*  ap_rputs("</body></html>", r) ;*/
+    return OK;
 }
     
 /* Add error reporting?  "Could not load model" etc */
