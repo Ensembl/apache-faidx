@@ -216,20 +216,52 @@ static int Faidx_handler(request_rec* r) {
 /* Add error reporting?  "Could not load model" etc */
 
 static int mod_Faidx_hook_post_config(apr_pool_t *pconf, apr_pool_t *plog,
-	apr_pool_t *ptemp, server_rec *s) {
+				      apr_pool_t *ptemp, server_rec *s) {
 
   Faidx_Obj_holder* Fai_Obj;
   Faidx_Obj_holder** prev_Fai_Obj;
   mod_Faidx_svr_cfg* svr
     = ap_get_module_config(s->module_config, &faidx_module);
+  void *data = NULL;
+  const char *userdata_key = "shm_counter_post_config";
 
 #ifdef DEBUG
   ap_log_error(APLOG_MARK, APLOG_ERR, 0, s,
 	       "Beginning to initialize Faidx, pid %d", (int)getpid());
 #endif
- 
+
+  /* Apache loads DSO modules twice. We want to wait until the second
+   * load before setting up our global mutex and shared memory segment.
+   * To avoid the first call to the post_config hook, we set some
+   * dummy userdata in a pool that lives longer than the first DSO
+   * load, and only run if that data is set on subsequent calls to
+   * this hook. */
+  apr_pool_userdata_get(&data, userdata_key, s->process->pool);
+  if (data == NULL) {
+    /* WARNING: This must *not* be apr_pool_userdata_setn(). The
+     * reason for this is because the static symbol section of the
+     * DSO may not be at the same address offset when it is reloaded.
+     * Since setn() does not make a copy and only compares addresses,
+     * the get() will be unable to find the original userdata. */
+#ifdef DEBUG
+    ap_log_error(APLOG_MARK, APLOG_ERR, 0, s,
+		 "We're in the first iteration, skipping init, pid %d", (int)getpid());
+#endif
+    apr_pool_userdata_set((const void *)1, userdata_key,
+			  apr_pool_cleanup_null, s->process->pool);
+    return OK; /* This would be the first time through */
+  }
+#ifdef DEBUG
+  else {
+    ap_log_error(APLOG_MARK, APLOG_ERR, 0, s,
+		 "We're in the second iteration, carry on init, pid %d", (int)getpid());
+  }
+#endif
+
   Fai_Obj = svr->FaiList;
   prev_Fai_Obj = &(svr->FaiList);
+
+  apr_pool_cleanup_register(pconf, svr, &Faidx_cleanup_fais, apr_pool_cleanup_null);
 
   /* Go through and initialize the Faidx objects in the linked list */
   while(Fai_Obj->nextFai != NULL) {
@@ -267,6 +299,32 @@ static int mod_Faidx_hook_post_config(apr_pool_t *pconf, apr_pool_t *plog,
   }
 
   return 0;
+}
+
+/* Clean-up the Faidx objects when the server is restarted */
+
+static apr_status_t Faidx_cleanup_fais(mod_Faidx_svr_cfg* server_cfg) {
+  Faidx_Obj_holder* FaiList = server_cfg->FaiList;
+
+  ap_log_error(APLOG_MARK, APLOG_ERR, 0, NULL,
+	       "Cleaning up Fais");
+
+  while(FaiList->nextFai != NULL) {
+    if(FaiList->pFai != NULL) {
+
+#ifdef DEBUG
+  ap_log_error(APLOG_MARK, APLOG_ERR, 0, NULL,
+	       "Destroying %s", FaiList->fai_set_handler);
+#endif
+
+      fai_destroy(FaiList->pFai);
+      FaiList->pFai = NULL;
+    }
+
+    FaiList = (Faidx_Obj_holder*)FaiList->nextFai;
+  }
+
+  return APR_SUCCESS;
 }
 
 /* Remove a Faidx from the server linked list */
