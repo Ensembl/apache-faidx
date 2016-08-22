@@ -11,7 +11,7 @@
 #include <http_log.h>
 #include <apr_strings.h>
 #include <apr_hash.h>
-//#include "binding.h"
+#include <unistd.h>
 #include "mod_faidx.h"
 
 /* Hook our handler into Apache at startup */
@@ -303,8 +303,8 @@ static int mod_Faidx_hook_post_config(apr_pool_t *pconf, apr_pool_t *plog,
 
 /* Clean-up the Faidx objects when the server is restarted */
 
-static apr_status_t Faidx_cleanup_fais(mod_Faidx_svr_cfg* server_cfg) {
-  Faidx_Obj_holder* FaiList = server_cfg->FaiList;
+static apr_status_t Faidx_cleanup_fais(void* server_cfg) {
+  Faidx_Obj_holder* FaiList = ((mod_Faidx_svr_cfg*)server_cfg)->FaiList;
 
   ap_log_error(APLOG_MARK, APLOG_ERR, 0, NULL,
 	       "Cleaning up Fais");

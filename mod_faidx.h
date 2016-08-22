@@ -24,7 +24,7 @@ typedef struct {
 static int Faidx_handler(request_rec* r);
 static int mod_Faidx_hook_post_config(apr_pool_t *pconf, apr_pool_t *plog,
                                        apr_pool_t *ptemp, server_rec *s);
-static apr_status_t Faidx_cleanup_fais(mod_Faidx_svr_cfg* server_cfg);
+static apr_status_t Faidx_cleanup_fais(void* server_cfg);
 static void mod_Faidx_hooks(apr_pool_t* pool);
 static void mod_Faidx_remove_fai(Faidx_Obj_holder** parent_Fai_Obj, Faidx_Obj_holder* Fai_Obj);
 
