@@ -24,7 +24,6 @@ static void mod_Faidx_hooks(apr_pool_t* pool) {
 
 static void* mod_Faidx_svr_conf(apr_pool_t* pool, server_rec* s) {
   mod_Faidx_svr_cfg* svr = apr_pcalloc(pool, sizeof(mod_Faidx_svr_cfg));
-  /* Why are we pre-allocating the first element? Can this be changed later? */
   svr->FaiList = apr_pcalloc(pool, sizeof(Faidx_Obj_holder));
   svr->FaiList->pFai = NULL;
   svr->FaiList->fai_set_handler = NULL;
@@ -57,6 +56,10 @@ static int Faidx_handler(request_rec* r) {
   mod_Faidx_svr_cfg* svr = NULL;
   faidx_t* pFai = NULL;
   int results;
+  char* uri;
+  char* uri_ptr;
+  char* sets_verb = "sets";
+  char* locations_verb = "locations/";
 
   if ( !r->handler || strcmp(r->handler, "faidx") ) {
     return DECLINED ;   /* none of our business */
@@ -79,6 +82,41 @@ static int Faidx_handler(request_rec* r) {
     ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
 		  "Error (Fai_Obj) is null, it shouldn't be!");
     return HTTP_INTERNAL_SERVER_ERROR;
+  }
+
+  /* Dispatch the request, is it a lookup, a request for all the
+     sets or all the locations in a set. This could get a little messy.
+     Eventually this could be broken out in to sub-calls. */
+
+  /* Make a copy of the uri for hunting through */
+  uri = apr_pstrcat(r->pool, r->uri, NULL);
+
+  /* Destructive, we don't care about trailing /, we always ignore
+     them, so if one exists, nuke it in the copy */
+  if(uri && *uri && uri[strlen(uri) - 1] == '/') {
+    uri[strlen(uri) - 1] = '\0';
+  }
+
+  /* First we're seeing if we've been asked for the list of sets */
+  uri_ptr = strrstr(uri, sets_verb);
+  if(uri_ptr != NULL && strlen(uri_ptr) == strlen(sets_verb)) {
+      /* We've been asked for the list of sets, find that and return */
+    return Faidx_sets_handler(r, Fai_Obj);
+  }
+
+  uri_ptr = strrstr(uri, locations_verb);
+  if(uri_ptr != NULL) {
+    uri_ptr += strlen(locations_verb);
+
+    /* We've found the locations verb, we've jumped forward
+       that length, now see if we still have more string.
+       If so, we need to start finding the set name. */
+    if(uri_ptr && *uri_ptr) {
+      /* uri_ptr is pointing to the set we want locations for,
+	 fetch those and return */
+      return Faidx_locations_handler(r, uri_ptr);
+
+    }
   }
 
   /* Display the form data */
@@ -200,6 +238,12 @@ static int Faidx_handler(request_rec* r) {
       }
     }
 
+    /* fai_fetch malloc's the sequence returned, we're
+       responsible for freeing it */
+    if(seq) {
+      free(seq);
+      seq = NULL;
+    }
 
       /* DO WE NEED TO DEALLOCATE seq ? */
 
@@ -213,6 +257,73 @@ static int Faidx_handler(request_rec* r) {
     return OK;
 }
     
+static int Faidx_sets_handler(request_rec* r, Faidx_Obj_holder* Fais) {
+  int Fai_count = 0;
+
+  /* Something went wrong, we didn't get any Fais, but
+     don't punish the user for our mistake. */
+  if(Fais == NULL) {
+    ap_rputs( "[]\n", r );
+    return OK;
+  }
+
+  /* Start JSON header */
+  ap_rputs( "[", r );
+
+  while(Fais->nextFai != NULL) {
+    if(Fai_count > 0) {
+      ap_rputs( ",", r );
+    }
+
+    ap_rprintf( r, "\"%s\"", Fais->fai_set_handler );
+
+    Fais = Fais->nextFai;
+    Fai_count++;
+  }
+
+  ap_rputs( "]\n", r );
+
+  return OK;
+}
+
+static int Faidx_locations_handler(request_rec* r, char* set) {
+  int loc_count = 0;
+  Faidx_Obj_holder* Fai_Obj;
+  faidx_keys* keys;
+  faidx_keys* t_key;
+
+  Fai_Obj = mod_Faidx_fetch_fai(r->server, NULL, set, 0);
+
+  /* If they do something silly like ask for a non-existent
+     set, that's not an error, it's just an empty set to
+     send back*/
+  if(Fai_Obj == NULL || Fai_Obj->pFai == NULL) {
+    ap_rputs( "[]\n", r );
+    return OK;
+  }
+
+  keys = faidx_fetch_keys(Fai_Obj->pFai);
+  ap_rputs( "[", r );
+
+  while(keys != NULL) {
+    if(loc_count > 0) {
+      ap_rputs( ",", r );
+    }
+
+    ap_rprintf( r, "\"%s\"", keys->key );
+
+    t_key = keys;
+    keys = (faidx_keys*)keys->next;
+    free(t_key);
+
+    loc_count++;
+  }
+
+  ap_rputs( "]\n", r );
+
+  return OK;
+}
+
 /* Add error reporting?  "Could not load model" etc */
 
 static int mod_Faidx_hook_post_config(apr_pool_t *pconf, apr_pool_t *plog,
@@ -585,4 +696,25 @@ static int parse_form_from_POST(request_rec* r, apr_hash_t** form) {
   
   return OK;
 
+}
+
+/*
+** find the last occurrance of find in string
+*/
+static char *
+strrstr(char *string, char *find)
+{
+	size_t stringlen, findlen;
+	char *cp;
+
+	findlen = strlen(find);
+	stringlen = strlen(string);
+	if (findlen > stringlen)
+		return NULL;
+
+	for (cp = string + stringlen - findlen; cp >= string; cp--)
+		if (strncmp(cp, find, findlen) == 0)
+			return cp;
+
+	return NULL;
 }

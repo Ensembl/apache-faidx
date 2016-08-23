@@ -22,6 +22,8 @@ typedef struct {
 
 
 static int Faidx_handler(request_rec* r);
+static int Faidx_sets_handler(request_rec* r, Faidx_Obj_holder* Fais);
+static int Faidx_locations_handler(request_rec* r, char* set);
 static int mod_Faidx_hook_post_config(apr_pool_t *pconf, apr_pool_t *plog,
                                        apr_pool_t *ptemp, server_rec *s);
 static apr_status_t Faidx_cleanup_fais(void* server_cfg);
@@ -36,5 +38,6 @@ static const char* modFaidx_init_set(cmd_parms* cmd, void* cfg, const char* SetN
 static apr_hash_t *parse_form_from_string(request_rec *r, char *args);
 static apr_hash_t* parse_form_from_GET(request_rec *r);
 static int parse_form_from_POST(request_rec* r, apr_hash_t** form);
+static char* strrstr(char*, char*);
 
 #endif
