@@ -77,6 +77,7 @@ static int Faidx_handler(request_rec* r) {
     return HTTP_INTERNAL_SERVER_ERROR;
   }
 
+  /* Get our list of faidx objects */
   Fai_Obj = svr->FaiList;
   if(Fai_Obj == NULL) {
     ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
@@ -256,6 +257,8 @@ static int Faidx_handler(request_rec* r) {
     /*  ap_rputs("</body></html>", r) ;*/
     return OK;
 }
+
+/* Handler for returning all sets available  */
     
 static int Faidx_sets_handler(request_rec* r, Faidx_Obj_holder* Fais) {
   int Fai_count = 0;
@@ -286,6 +289,8 @@ static int Faidx_sets_handler(request_rec* r, Faidx_Obj_holder* Fais) {
   return OK;
 }
 
+/* Handler for returning all locations in a particular set  */
+
 static int Faidx_locations_handler(request_rec* r, char* set) {
   int loc_count = 0;
   Faidx_Obj_holder* Fai_Obj;
@@ -302,6 +307,7 @@ static int Faidx_locations_handler(request_rec* r, char* set) {
     return OK;
   }
 
+  /* Ask faidx for a list of all available keys */
   keys = faidx_fetch_keys(Fai_Obj->pFai);
   ap_rputs( "[", r );
 
@@ -312,6 +318,7 @@ static int Faidx_locations_handler(request_rec* r, char* set) {
 
     ap_rprintf( r, "\"%s\"", keys->key );
 
+    /* We're responsible for nuking the keys as we use them */
     t_key = keys;
     keys = (faidx_keys*)keys->next;
     free(t_key);
@@ -372,6 +379,8 @@ static int mod_Faidx_hook_post_config(apr_pool_t *pconf, apr_pool_t *plog,
   Fai_Obj = svr->FaiList;
   prev_Fai_Obj = &(svr->FaiList);
 
+  /* Register the faidx objects for cleanup when the module exits,
+     needed for graceful reloads to not leak memory */
   apr_pool_cleanup_register(pconf, svr, &Faidx_cleanup_fais, apr_pool_cleanup_null);
 
   /* Go through and initialize the Faidx objects in the linked list */
