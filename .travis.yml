@@ -17,6 +17,7 @@ before_install:
   - sudo make install
   - export HTSLIB_DIR=$(pwd -P)
   - cd ..
+  - sudo ldconfig
 
 install:  
   - make
