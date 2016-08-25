@@ -1,9 +1,14 @@
 language: c
 
+cache:
+  directories:
+    - $HOME/build/lairdm/apache-faidx/htslib
+
 addons:
   apt:
     packages:
       - apache2-prefork-dev
+      - apache2-mpm-prefork
 
 before_install:
   - git clone --branch develop --depth 1 https://github.com/lairdm/htslib.git
