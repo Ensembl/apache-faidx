@@ -6,7 +6,7 @@ addons:
       - apache2-prefork-dev
 
 before_install:
-  - git clone --branch master --depth 1 https://github.com/lairdm/htslib.git
+  - git clone --branch develop --depth 1 https://github.com/lairdm/htslib.git
   - cd htslib
   - make
   - sudo make install
