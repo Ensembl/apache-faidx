@@ -9,6 +9,7 @@ addons:
     packages:
       - apache2-prefork-dev
       - apache2-mpm-prefork
+      - curl
 
 before_install:
   - if [ -d htslib ]; then (cd htslib && git pull); else git clone --branch develop --depth 1 https://github.com/lairdm/htslib.git; fi
@@ -28,7 +29,9 @@ install:
   - sudo apache2ctl restart
 
 script:
-  - ps aux
+  - curl "http://localhost/faidx?set=human&location=1%3A1000-2000"
+  - curl "http://localhost/faidx/sets"
+  - curl "http://localhost/faidx/locations/cat/"
 
 after_failure:
   - cat /var/log/apache2/error.log
