@@ -21,7 +21,7 @@ before_install:
   - sudo ldconfig
 
 install:  
-  - make
+  - make debug
   - sudo make install
   - export APACHE_FAIDX_DIR=$(pwd -P)
   - sudo ln -s $(pwd -P)/t/faidx.load /etc/apache2/mods-enabled/
@@ -32,6 +32,7 @@ script:
   - curl "http://localhost/faidx?set=human&location=1%3A1000-2000"
   - curl "http://localhost/faidx/sets"
   - curl "http://localhost/faidx/locations/cat/"
+  - cat /var/log/apache2/error.log
 
 after_failure:
   - cat /var/log/apache2/error.log
