@@ -11,7 +11,7 @@ addons:
       - apache2-mpm-prefork
 
 before_install:
-  - if [ -d htslib ]; then (cd repo && git pull); else git clone --branch develop --depth 1 https://github.com/lairdm/htslib.git; fi
+  - if [ -d htslib ]; then (cd htslib && git pull); else git clone --branch develop --depth 1 https://github.com/lairdm/htslib.git; fi
   - cd htslib
   - make
   - sudo make install
