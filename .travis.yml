@@ -1,0 +1,22 @@
+language: c
+
+addons:
+  apt:
+    packages:
+      - apache2-prefork-dev
+
+before_install:
+  - git clone --branch master --depth 1 https://github.com/lairdm/htslib.git
+  - cd htslib
+  - make
+  - sudo make install
+  - export HTSLIB_DIR=$(pwd -P)
+  - cd ..
+
+install:  
+  - make
+  - sudo make install
+  - sudo apache2ctl restart
+
+script:
+  - ps aux
