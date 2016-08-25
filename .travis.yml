@@ -33,7 +33,7 @@ script:
   - curl "http://localhost/faidx/sets"
   - curl "http://localhost/faidx/locations/cat/"
   - curl "http://localhost/faidx/locations/human/"
-  - cat /var/log/apache2/error.log
+  - sudo cat /var/log/apache2/error.log
 
 after_failure:
-  - cat /var/log/apache2/error.log
+  - sudo cat /var/log/apache2/error.log
