@@ -46,6 +46,8 @@ install:
   - ls -la ${APACHE_FAIDX_DIR}/.libs/
   - if [[ "$COVERALLS" == "true" ]]; then sudo apache2ctl stop; else sudo apache2ctl restart; fi
   - if [[ "$COVERALLS" == "true" ]]; then (sudo sh -c '. /etc/apache2/envvars; /usr/sbin/apache2 -X')& fi
+  - if [[ "$COVERALLS" == "true" ]]; then sleep 2; fi
+  - if [[ "$COVERALLS" == "true" ]]; then (ps auxww|grep apache2); fi
   - if [[ "$COVERALLS" == "true" ]]; then (ps auxww|grep apache2|awk '{print $2}'|xargs -I % sudo kill -s HUP %); fi
   - if [[ "$COVERALLS" == "true" ]]; then (ps auxww|grep apache2); fi
   - if [[ "$COVERALLS" == "true" ]]; then (sudo sh -c '. /etc/apache2/envvars; /usr/sbin/apache2 -X')& fi
