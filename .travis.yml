@@ -14,7 +14,7 @@ addons:
       - apache2-prefork-dev
       - apache2-mpm-prefork
       - curl
-      - ruby
+      - ruby-dev
       - lcov
 
 before_install:
