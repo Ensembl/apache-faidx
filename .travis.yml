@@ -27,7 +27,7 @@ before_install:
   - cd ..
   - sudo ldconfig
   - which gem
-  - sudo gem install coveralls-lcov
+  - gem install coveralls-lcov
 
 before_script:
   - if [[ "$COVERALLS" == "true" ]]; then lcov --directory . --zerocounters; fi
