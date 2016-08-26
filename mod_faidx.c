@@ -367,7 +367,10 @@ static int mod_Faidx_hook_post_config(apr_pool_t *pconf, apr_pool_t *plog,
 #endif
     apr_pool_userdata_set((const void *)1, userdata_key,
 			  apr_pool_cleanup_null, s->process->pool);
+    /* And... in apache 2.2 the post_config hook is only run once, fuck */
+#ifdef APACHE24
     return OK; /* This would be the first time through */
+#endif
   }
 #ifdef DEBUG
   else {
