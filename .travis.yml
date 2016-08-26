@@ -41,10 +41,11 @@ install:
   - ls -l /etc/apache2/mods-enabled/
   - if [[ "$COVERALLS" == "true" ]]; then lcov --directory . --zerocounters; fi
   - if [[ "$COVERALLS" == "true" ]]; then make coveralls; else make debug; fi
-  - if [[ "$COVERALLS" == "true" ]]; then touch ${APACHE_FAIDX_DIR}/.libs/mod_faidx.gcda && chmod 777 ${APACHE_FAIDX_DIR}/.libs/mod_faidx.gcda; fi
+  - if [[ "$COVERALLS" == "true" ]]; then touch ${APACHE_FAIDX_DIR}/.libs/mod_faidx.gcda && chmod 666 ${APACHE_FAIDX_DIR}/.libs/mod_faidx.gcda; fi
   - if [[ "$COVERALLS" == "false" ]]; then sudo make install; fi
   - ls -la ${APACHE_FAIDX_DIR}/.libs/
-  - sudo apache2ctl restart
+  - if [[ "$COVERALLS" == "true" ]]; then sudo apache2ctl stop; else sudo apache2ctl restart; fi
+  - if [[ "$COVERALLS" == "true" ]]; then sudo sh -c '. /etc/apache2/envvars; /usr/sbin/apache2 -X'&; fi
 
 script:
   - curl "http://localhost/faidx?set=human&location=1%3A1000-2000"
