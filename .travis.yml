@@ -45,19 +45,20 @@ install:
   - if [[ "$COVERALLS" == "false" ]]; then sudo make install; fi
   - ls -la ${APACHE_FAIDX_DIR}/.libs/
   - if [[ "$COVERALLS" == "true" ]]; then sudo apache2ctl stop; else sudo apache2ctl restart; fi
-  - if [[ "$COVERALLS" == "true" ]]; then apachectl -V; fi
-  - if [[ "$COVERALLS" == "true" ]]; then (sudo sh -c '. /etc/apache2/envvars; /usr/sbin/apache2 -X')& fi
+#  - if [[ "$COVERALLS" == "true" ]]; then apachectl -V; fi
+#  - if [[ "$COVERALLS" == "true" ]]; then (sudo sh -c '. /etc/apache2/envvars; /usr/sbin/apache2 -X')& fi
   - ls -la ${APACHE_FAIDX_DIR}/.libs/
 
 script:
-  - curl "http://localhost/faidx?set=human&location=1%3A1000-2000"
-  - curl "http://localhost/faidx?set=human&location=Y%3A1000-2000"
-  - curl "http://localhost/faidx/sets"
-  - curl "http://localhost/faidx/locations/cat/"
-  - curl "http://localhost/faidx/locations/human/"
+  - if [[ "$COVERALLS" == "true" ]]; then bash ${APACHE_FAIDX_DIR}/travisci/apache-bump.sh; fi
+  - if [[ "$COVERALLS" == "false" ]]; then curl "http://localhost/faidx?set=human&location=1%3A1000-2000"; fi
+  - if [[ "$COVERALLS" == "false" ]]; then curl "http://localhost/faidx?set=human&location=Y%3A1000-2000"; fi
+  - if [[ "$COVERALLS" == "false" ]]; then curl "http://localhost/faidx/sets"; fi
+  - if [[ "$COVERALLS" == "false" ]]; then curl "http://localhost/faidx/locations/cat/"; fi
+  - if [[ "$COVERALLS" == "false" ]]; then curl "http://localhost/faidx/locations/human/"; fi
 
 after_success:
-  - if [[ "$COVERALLS" == "true" ]]; then sudo pkill --signal HUP apache2; fi
+#  - if [[ "$COVERALLS" == "true" ]]; then sudo pkill --signal HUP apache2; fi
   - if [[ "$COVERALLS" == "true" ]]; then (ps auxww|grep [a]pache2); fi
   - if [[ "$COVERALLS" == "true" ]]; then (ps auxww|grep [a]pache2|awk '{print $2}'|xargs -I % echo %); fi
   - if [[ "$COVERALLS" == "true" ]]; then sudo sync; fi

@@ -2,9 +2,25 @@
 # work correctly
 
 (sudo sh -c '. /etc/apache2/envvars; /usr/sbin/apache2 -X')&
-sleep 2
+
 ps auxww|grep [a]pache2
-ps auxww|grep [a]pache2|awk '{print $2}'
-ps auxww|grep [a]pache2|awk '{print $2}'|xargs -I % sudo kill -s HUP %
-ps auxww|grep [a]pache2
+curl "http://localhost/faidx/locations/human/"
+
+sudo pkill --signal HUP apache2
 (sudo sh -c '. /etc/apache2/envvars; /usr/sbin/apache2 -X')&
+curl "http://localhost/faidx?set=human&location=1%3A1000-2000"
+curl "http://localhost/faidx?set=human&location=Y%3A1000-2000"
+curl "http://localhost/faidx/sets"
+curl "http://localhost/faidx/locations/cat/"
+curl "http://localhost/faidx/locations/human/"
+
+sudo pkill --signal HUP apache2
+(sudo sh -c '. /etc/apache2/envvars; /usr/sbin/apache2 -X')&
+curl "http://localhost/faidx?set=human&location=1%3A1000-2000"
+curl "http://localhost/faidx?set=human&location=Y%3A1000-2000"
+curl "http://localhost/faidx/sets"
+curl "http://localhost/faidx/locations/cat/"
+curl "http://localhost/faidx/locations/human/"
+
+sudo pkill --signal HUP apache2
+sleep 5
