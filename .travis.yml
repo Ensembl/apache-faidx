@@ -45,7 +45,7 @@ install:
   - if [[ "$COVERALLS" == "false" ]]; then sudo make install; fi
   - ls -la ${APACHE_FAIDX_DIR}/.libs/
   - if [[ "$COVERALLS" == "true" ]]; then sudo apache2ctl stop; else sudo apache2ctl restart; fi
-  - if [[ "$COVERALLS" == "true" ]]; then (sudo sh -c '. /etc/apache2/envvars; /usr/sbin/apache2 -X')& fi
+  - if [[ "$COVERALLS" == "true" ]]; then (sudo sh -c '. /etc/apache2/envvars; /usr/sbin/apache2 -X')& export APACHE_PID=$! fi
 
 script:
   - curl "http://localhost/faidx?set=human&location=1%3A1000-2000"
@@ -60,6 +60,7 @@ after_success:
   - if [[ "$COVERALLS" == "true" ]]; then lcov --remove coverage.info 'test/*' '/usr/*' --output-file coverage.info; fi
   - if [[ "$COVERALLS" == "true" ]]; then lcov --list coverage.info; fi
   - if [[ "$COVERALLS" == "true" ]]; then coveralls-lcov --repo-token riAPmHw8OAaaaitWA26yBEIpGYLGyXQ6w coverage.info; fi
+  - if [[ "$COVERALLS" == "true" ]]; then ps aux|grep apache|awk '{print $2}'|xargs sudo kill -s HUP; fi
   - ls -la ${APACHE_FAIDX_DIR}/.libs/
   - ps aux
   - sudo cat /var/log/apache2/error.log
