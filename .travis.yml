@@ -34,6 +34,7 @@ script:
   - curl "http://localhost/faidx/sets"
   - curl "http://localhost/faidx/locations/cat/"
   - curl "http://localhost/faidx/locations/human/"
+  - /usr/sbin/apachectl -V
 
 after_success:
   - ls -l /etc/apache2/mods-enabled/
