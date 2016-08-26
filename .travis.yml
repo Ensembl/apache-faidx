@@ -26,6 +26,7 @@ before_install:
   - export HTSLIB_DIR=$(pwd -P)
   - cd ..
   - sudo ldconfig
+  - which gem
   - sudo gem install coveralls-lcov
 
 before_script:
