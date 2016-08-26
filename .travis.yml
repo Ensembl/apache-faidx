@@ -56,13 +56,13 @@ script:
 #  - /usr/sbin/apachectl -V
 
 after_success:
-  - if [[ "$COVERALLS" == "true" ]]; then (ps aux|grep apache|awk '{print $2}'|xargs -I % sudo kill -s HUP %); fi
+  - if [[ "$COVERALLS" == "true" ]]; then (ps auxww|grep apache|awk '{print $2}'|xargs -I % sudo kill -s HUP %); fi
   - if [[ "$COVERALLS" == "true" ]]; then lcov --directory . --capture --output-file coverage.info; fi
   - if [[ "$COVERALLS" == "true" ]]; then lcov --remove coverage.info 'test/*' '/usr/*' --output-file coverage.info; fi
   - if [[ "$COVERALLS" == "true" ]]; then lcov --list coverage.info; fi
   - if [[ "$COVERALLS" == "true" ]]; then coveralls-lcov --repo-token riAPmHw8OAaaaitWA26yBEIpGYLGyXQ6w coverage.info; fi
   - ls -la ${APACHE_FAIDX_DIR}/.libs/
-  - ps aux
+  - ps auxww
   - sudo cat /var/log/apache2/error.log
 
 after_failure:
