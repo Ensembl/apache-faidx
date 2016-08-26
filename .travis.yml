@@ -26,7 +26,7 @@ install:
   - export APACHE_FAIDX_DIR=$(pwd -P)
   - sudo ln -s $(pwd -P)/t/faidx.load /etc/apache2/mods-enabled/
   - sudo ln -s $(pwd -P)/t/faidx.conf /etc/apache2/mods-enabled/
-  - sudo apache2ctl restart
+  - sudo APACHE_FAIDX_DIR=$(pwd -P) apache2ctl restart
 
 script:
   - curl "http://localhost/faidx?set=human&location=1%3A1000-2000"
