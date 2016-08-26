@@ -45,7 +45,7 @@ install:
   - if [[ "$COVERALLS" == "false" ]]; then sudo make install; fi
   - ls -la ${APACHE_FAIDX_DIR}/.libs/
   - if [[ "$COVERALLS" == "true" ]]; then sudo apache2ctl stop; else sudo apache2ctl restart; fi
-  - if [[ "$COVERALLS" == "true" ]]; then (sudo sh -c '. /etc/apache2/envvars; /usr/sbin/apache2 -X')&; fi
+  - if [[ "$COVERALLS" == "true" ]]; then (sudo sh -c '. /etc/apache2/envvars; /usr/sbin/apache2 -X')& fi
 
 script:
   - curl "http://localhost/faidx?set=human&location=1%3A1000-2000"
