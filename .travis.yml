@@ -61,6 +61,7 @@ after_success:
   - if [[ "$COVERALLS" == "true" ]]; then lcov --list coverage.info; fi
   - if [[ "$COVERALLS" == "true" ]]; then coveralls-lcov --repo-token riAPmHw8OAaaaitWA26yBEIpGYLGyXQ6w coverage.info; fi
   - ls -la ${APACHE_FAIDX_DIR}/.libs/
+  - ps aux
   - sudo cat /var/log/apache2/error.log
 
 after_failure:
