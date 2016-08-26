@@ -14,11 +14,13 @@ addons:
       - apache2-prefork-dev
       - apache2-mpm-prefork
       - curl
+      - rubygems-integration
       - lcov
 
 before_install:
   - if [ -d htslib ]; then (cd htslib && git pull); else git clone --branch develop --depth 1 https://github.com/lairdm/htslib.git; fi
   - cd htslib
+  - pwd
   - make
   - sudo make install
   - export HTSLIB_DIR=$(pwd -P)
