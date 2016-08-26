@@ -19,8 +19,6 @@ before_install:
   - export HTSLIB_DIR=$(pwd -P)
   - cd ..
   - sudo ldconfig
-  - apt-cache search apache
-  - dpkg -l
 
 install:  
   - make debug
@@ -39,7 +37,6 @@ script:
   - /usr/sbin/apachectl -V
 
 after_success:
-  - ls -l /etc/apache2/mods-enabled/
   - sudo cat /var/log/apache2/error.log
 
 after_failure:
