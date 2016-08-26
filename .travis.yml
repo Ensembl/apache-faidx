@@ -41,9 +41,8 @@ install:
   - ls -l /etc/apache2/mods-enabled/
   - if [[ "$COVERALLS" == "true" ]]; then lcov --directory . --zerocounters; fi
   - if [[ "$COVERALLS" == "true" ]]; then make coveralls; else make debug; fi
+  - if [[ "$COVERALLS" == "true" ]]; then touch ${APACHE_FAIDX_DIR}/.libs/mod_faidx.gcda && chmod 777 ${APACHE_FAIDX_DIR}/.libs/mod_faidx.gcda; fi
   - if [[ "$COVERALLS" == "false" ]]; then sudo make install; fi
-  - if [[ "$COVERALLS" == "false" ]]; then touch ${APACHE_FAIDX_DIR}/.libs/mod_faidx.gcda; fi
-  -  if [[ "$COVERALLS" == "false" ]]; then chmod 777 ${APACHE_FAIDX_DIR}/.libs/mod_faidx.gcda; fi
   - ls -la ${APACHE_FAIDX_DIR}/.libs/
   - sudo apache2ctl restart
 
