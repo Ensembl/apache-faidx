@@ -4,12 +4,17 @@ cache:
   directories:
     - $HOME/build/lairdm/apache-faidx/htslib
 
+env:
+  - COVERALLS=true
+  - COVERALLS=false
+
 addons:
   apt:
     packages:
       - apache2-prefork-dev
       - apache2-mpm-prefork
       - curl
+      - lcov
 
 before_install:
   - if [ -d htslib ]; then (cd htslib && git pull); else git clone --branch develop --depth 1 https://github.com/lairdm/htslib.git; fi
@@ -19,14 +24,20 @@ before_install:
   - export HTSLIB_DIR=$(pwd -P)
   - cd ..
   - sudo ldconfig
+  - sudo gem install coveralls-lcov
+
+before_script:
+  - if [[ "$COVERALLS" == "true" ]]; then lcov --directory . --zerocounters; fi
 
 install:  
   - make debug
   - sudo make install
   - export APACHE_FAIDX_DIR=$(pwd -P)
   - sed -i -e 's@APACHE_FAIDX_DIR@'$APACHE_FAIDX_DIR'@g' t/faidx.conf
+  - sed -i -e 's@APACHE_FAIDX_DIR@'$APACHE_FAIDX_DIR'@g' t/faidx_coveralls.load
   - sudo ln -s $(pwd -P)/t/faidx.load /etc/apache2/mods-enabled/
   - sudo ln -s $(pwd -P)/t/faidx.conf /etc/apache2/mods-enabled/
+  - if [[ "$COVERALLS" == "true" ]]; then sudo ln -f -s $(pwd -P)/t/faidx_coveralls.load /etc/apache2/mods-enabled/faidx.load; fi
   - sudo apache2ctl restart
 
 script:
@@ -37,6 +48,10 @@ script:
   - /usr/sbin/apachectl -V
 
 after_success:
+  - if [[ "$COVERALLS" == "true" ]]; then lcov --directory . --capture --output-file coverage.info; fi
+  - if [[ "$COVERALLS" == "true" ]]; then lcov --remove coverage.info 't/*' --output-file coverage.info; fi
+  - if [[ "$COVERALLS" == "true" ]]; then lcov --list coverage.info; fi
+  - if [[ "$COVERALLS" == "true" ]]; then coveralls-lcov --repo-token riAPmHw8OAaaaitWA26yBEIpGYLGyXQ6w coverage.info; fi
   - sudo cat /var/log/apache2/error.log
 
 after_failure:
