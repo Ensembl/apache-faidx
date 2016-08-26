@@ -21,7 +21,7 @@ addons:
       - lcov
 
 before_install:
-  - if [ -d "htslib1" ]; then (cd htslib && git pull); else git clone --branch develop --depth 1 https://github.com/lairdm/htslib.git; fi
+  - if [ -d "htslib" ]; then (cd htslib && git pull); else git clone --branch develop --depth 1 https://github.com/lairdm/htslib.git; fi
   - cd htslib
   - pwd
   - make
@@ -42,6 +42,8 @@ install:
   - if [[ "$COVERALLS" == "true" ]]; then lcov --directory . --zerocounters; fi
   - if [[ "$COVERALLS" == "true" ]]; then make coveralls; else make debug; fi
   - if [[ "$COVERALLS" == "false" ]]; then sudo make install; fi
+  - if [[ "$COVERALLS" == "false" ]]; then touch ${APACHE_FAIDX_DIR}/.libs/mod_faidx.gcda && chmod 777 ${APACHE_FAIDX_DIR}/.libs/mod_faidx.gcda; fi
+  - ls -la ${APACHE_FAIDX_DIR}/.libs/
   - sudo apache2ctl restart
 
 script:
