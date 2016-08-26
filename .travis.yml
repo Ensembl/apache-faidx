@@ -19,6 +19,7 @@ before_install:
   - export HTSLIB_DIR=$(pwd -P)
   - cd ..
   - sudo ldconfig
+  - apt-cache search apache
 
 install:  
   - make debug
