@@ -36,6 +36,7 @@ script:
   - curl "http://localhost/faidx/locations/human/"
 
 after_success:
+  - ls -l /etc/apache2/mods-enabled/
   - sudo cat /var/log/apache2/error.log
 
 after_failure:
