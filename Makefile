@@ -4,7 +4,7 @@ all:
 debug:
 	apxs2 -DDEBUG=1 -c -L$(HTSLIB_DIR) -I$(HTSLIB_DIR) -Wl,-rpath=$(HTSLIB_DIR) -lhts -lz mod_faidx.c
 
-coverage:
+coveralls:
 	apxs2 -DDEBUG=1 -c -L$(HTSLIB_DIR) -I$(HTSLIB_DIR) -Wl,-rpath=$(HTSLIB_DIR) "-Wc,-g -O0 --coverage" -lhts -lz -lgcov mod_faidx.c
 
 install:

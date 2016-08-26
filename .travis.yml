@@ -1,8 +1,8 @@
 language: c
 
-cache:
-  directories:
-    - $HOME/build/lairdm/apache-faidx/htslib
+#cache:
+#  directories:
+#    - $HOME/build/lairdm/apache-faidx/htslib
 
 env:
   - COVERALLS=true
@@ -30,14 +30,14 @@ before_script:
   - if [[ "$COVERALLS" == "true" ]]; then lcov --directory . --zerocounters; fi
 
 install:  
-  - make debug
-  - sudo make install
   - export APACHE_FAIDX_DIR=$(pwd -P)
   - sed -i -e 's@APACHE_FAIDX_DIR@'$APACHE_FAIDX_DIR'@g' t/faidx.conf
   - sed -i -e 's@APACHE_FAIDX_DIR@'$APACHE_FAIDX_DIR'@g' t/faidx_coveralls.load
   - sudo ln -s $(pwd -P)/t/faidx.load /etc/apache2/mods-enabled/
   - sudo ln -s $(pwd -P)/t/faidx.conf /etc/apache2/mods-enabled/
   - if [[ "$COVERALLS" == "true" ]]; then sudo ln -f -s $(pwd -P)/t/faidx_coveralls.load /etc/apache2/mods-enabled/faidx.load; fi
+  - if [[ "$COVERALLS" == "true" ]]; then make coveralls; else make debug; fi
+  - sudo make install
   - sudo apache2ctl restart
 
 script:
