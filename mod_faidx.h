@@ -4,6 +4,7 @@
 #include "htslib/faidx.h"
 
 static const int MAX_SIZE = 16384;
+static const int MAX_FASTA_LINE_LENGTH = 70
 
 /* Representation of a Faidx object */
 typedef struct {

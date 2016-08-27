@@ -331,6 +331,47 @@ static int Faidx_locations_handler(request_rec* r, char* set) {
   return OK;
 }
 
+/* 
+   Print a Fasta sequence to the client
+   ARGS[1] : Request object
+   ARGS[2] : char*, Fasta header, caller responsible for deallocating the string
+   ARGS[3] : char*, Fasta sequence to print, it will be formatted to max line length,
+             caller is responsible for deallocating the string
+
+ */
+
+void print_fasta(request_rec* r, char* header, char* seq) {
+  char* seq_line;
+  int seq_remaining;
+
+  /* Create a null padded string, we're taking advantage of knowing
+     our terminating character is already \0 */
+  seq_line = apr_pcalloc(r->pool, ( MAX_FASTA_LINE_LENGTH + 1 ));
+  seq_remaining = strlen(seq);
+
+  ap_rprintf(r, ">%s\n", header);
+
+  while(seq_remaining > 0) {
+    int copy_length;
+    if( seq_remaining > MAX_FASTA_LINE_LENGTH ) {
+      copy_length = MAX_FASTA_LINE_LENGTH;
+    } else {
+      /* If we know we'll be copying less than the max line length,
+         ensure this new shorter string is now \0 terminated */
+      copy_length = seq_remaining;
+      seq_line[copy_length+1] = '\0';
+    }
+
+    /* We know the new string will always be \0 terminated, either from
+       the initial pcalloc, or because we're put a \0 on the tructated string */
+    seq_line = memcopy(seq_line, seq, copy_length);
+    seq_remaining -= copy_length;
+
+    ap_rprintf(r, "%s\n", seq_line);
+  }
+
+}
+
 /* Add error reporting?  "Could not load model" etc */
 
 static int mod_Faidx_hook_post_config(apr_pool_t *pconf, apr_pool_t *plog,
