@@ -2,8 +2,32 @@
 # work correctly
 
 lcov --directory . --zerocounters
-touch ${APACHE_FAIDX_DIR}/.libs/mod_faidx.gcda && chmod 666 ${APACHE_FAIDX_DIR}/.libs/mod_faidx.gcda && sudo chown root.root ${APACHE_FAIDX_DIR}/.libs/mod_faidx.gcda
-ls -l ${APACHE_FAIDX_DIR}/
+#touch ${APACHE_FAIDX_DIR}/.libs/mod_faidx.gcda && chmod 666 ${APACHE_FAIDX_DIR}/.libs/mod_faidx.gcda && sudo chown root.root ${APACHE_FAIDX_DIR}/.libs/mod_faidx.gcda
+ls -l ${APACHE_FAIDX_DIR}/.libs/
+
+sudo chmod 666 /var/log/apache2/error.log
+sudo chmod 666 /var/log/apache2/other_vhosts_access.log
+sudo chmod 666 /var/log/apache2/access.log
+sudo chmod 666 /var/run/apache2/apache2.pid
+sudo chmod 777 /var/run/apache2/
+sudo sed -i -e 's@80@8000@g' /etc/apache2/ports.conf
+
+(. /etc/apache2/envvars; /usr/sbin/apache2 -X)&
+sleep 2
+ps auxww|grep [a]pache2
+
+curl "http://localhost:8000/faidx?set=human&location=1%3A1000-2000"
+curl "http://localhost:8000/faidx?set=human&location=Y%3A1000-2000"
+curl "http://localhost:8000/faidx/sets"
+curl "http://localhost:8000/faidx/locations/cat/"
+curl "http://localhost:8000/faidx/locations/human/"
+
+apachectl -k graceful
+sleep 1
+ls -l ${APACHE_FAIDX_DIR}/.libs/
+
+exit
+
 (sudo sh -c '. /etc/apache2/envvars; /usr/sbin/apache2 -X')&
 sleep 1
 
