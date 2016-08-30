@@ -11,7 +11,9 @@
 #include <http_log.h>
 #include <apr_strings.h>
 #include <apr_hash.h>
+#include <apr_escape.h>
 #include <unistd.h>
+#include <string.h>
 #include "mod_faidx.h"
 
 /* Hook our handler into Apache at startup */
@@ -58,6 +60,8 @@ static int Faidx_handler(request_rec* r) {
   int results;
   char* uri;
   char* uri_ptr;
+  const char* ctype_str;
+  int ctype;
   char* sets_verb = "sets";
   char* locations_verb = "locations/";
 
@@ -75,6 +79,19 @@ static int Faidx_handler(request_rec* r) {
     ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
 		  "Error (svr) is null, it shouldn't be!");
     return HTTP_INTERNAL_SERVER_ERROR;
+  }
+
+  ctype_str = apr_table_get(r->headers_in, "Content-Type");
+  if(ctype_str && (strcasestr(ctype_str, 
+			  "application/x-www-form-urlencoded")
+	       != NULL)) {
+    ctype = CONTENT_WWWFORM;
+  } else if(ctype_str && (strcasestr(ctype_str, 
+				"text/x-fasta")
+		     != NULL)) {
+    ctype = CONTENT_FASTA;
+  } else {
+    ctype = CONTENT_JSON;
   }
 
   /* Get our list of faidx objects */
@@ -125,30 +142,23 @@ static int Faidx_handler(request_rec* r) {
     formdata = parse_form_from_GET(r);
   }
   else if(r->method_number == M_POST) {
-    const char* ctype = apr_table_get(r->headers_in, "Content-Type");
-    if(ctype && (strcasestr(ctype, 
-			    "application/x-www-form-urlencoded")
-		 != NULL)) {
-      rv = parse_form_from_POST(r, &formdata);
+    if(ctype == CONTENT_WWWFORM) {
+      rv = parse_form_from_POST(r, &formdata, 0);
     }
-#ifdef DEBUG
     else {
-      ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
-		    "content-type not set correctly, is: %s", ctype);
+      rv = parse_form_from_POST(r, &formdata, 1);
     }
-#endif
   } else {
     ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
 		  "Error, no data given to module, where's your location?");
     return HTTP_INTERNAL_SERVER_ERROR;
   }
 
-  ap_set_content_type(r, "application/json") ;
-  /*  ap_rputs(
-	   "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\">\n", r) ;
-    ap_rputs(
-	   "<html><head><title>Faidx</title></head>", r) ;
-	   ap_rputs("<body>", r) ;*/
+  if(ctype == CONTENT_FASTA) {
+    ap_set_content_type(r, "text/x-fasta") ;
+  } else {
+    ap_set_content_type(r, "application/json") ;
+  }
 
   if(rv != OK) {
     ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
@@ -174,7 +184,9 @@ static int Faidx_handler(request_rec* r) {
     Loc_count = 0;
 
     /* Start JSON header */
-    ap_rputs( "{\n", r );
+    if(ctype != CONTENT_FASTA) {
+      ap_rputs( "{\n", r );
+    }
 
     /* Find the set we've been asked to look up in */
     set = apr_hash_get(formdata, "set", APR_HASH_KEY_STRING);
@@ -183,9 +195,9 @@ static int Faidx_handler(request_rec* r) {
 		    "Error, no set specified!");
       ap_rputs( "    \"Error\": \"No set specified\"\n}\n", r );
       return OK;
-    } else {
+    } else if(ctype != CONTENT_FASTA) {
       /* Spit out the set we'll be using in the JSON response */
-      ap_rprintf(r,"    \"set\": \"%s\",\n", set);
+      ap_rprintf(r,"    \"set\": \"%s\",", set);
     }
 
     /* Go fetch that faidx object */
@@ -224,37 +236,49 @@ static int Faidx_handler(request_rec* r) {
 #endif
 
       seq = fai_fetch(tFai_Obj->pFai, key, seq_len);
-      //      fai_fetch(tFai_Obj->pFai, key, seq_len);
 
 #ifdef DEBUG
       ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
 			  "Received sequence %s", seq);
 #endif
 
-      if(*seq_len >= 0) {
-      /* We received a result */
-        ap_rprintf(r, "    \"%s\": \"%s\"\n", key, seq);
+      if(ctype == CONTENT_FASTA) {
+	char* header = apr_psprintf(r->pool, "%s [%s]", set, key);
+	print_fasta(r, header, seq);
       } else {
-        ap_rprintf(r, "    \"%s\": \"ERROR\"\n", key);
-      }
-    }
+	if(Loc_count > 0) {
+	  ap_rputs(",\n", r);
+	} else {
+	  ap_rputs("\n", r);
+	}
 
-    /* fai_fetch malloc's the sequence returned, we're
-       responsible for freeing it */
-    if(seq) {
-      free(seq);
-      seq = NULL;
-    }
+	if(*seq_len >= 0) {
+	  /* We received a result */
+	  ap_rprintf(r, "    \"%s\": \"%s\"", key, seq);
+	} else {
+	  ap_rprintf(r, "    \"%s\": \"ERROR\"", key);
+	}
+      }
+
+      /* fai_fetch malloc's the sequence returned, we're
+	 responsible for freeing it */
+      if(seq) {
+	free(seq);
+	seq = NULL;
+      }
 
       /* DO WE NEED TO DEALLOCATE seq ? */
 
-      Loc_count++;
+      Loc_count++;    
+    }
+
   }
 
     /* Close the JSON */
-    ap_rputs( "}\n", r );
+    if(ctype != CONTENT_FASTA) {
+      ap_rputs( "}\n", r );
+    }
 
-    /*  ap_rputs("</body></html>", r) ;*/
     return OK;
 }
 
@@ -364,8 +388,9 @@ void print_fasta(request_rec* r, char* header, char* seq) {
 
     /* We know the new string will always be \0 terminated, either from
        the initial pcalloc, or because we're put a \0 on the tructated string */
-    seq_line = memcopy(seq_line, seq, copy_length);
+    seq_line = memcpy(seq_line, seq, copy_length);
     seq_remaining -= copy_length;
+    seq += copy_length;
 
     ap_rprintf(r, "%s\n", seq_line);
   }
@@ -666,7 +691,7 @@ static apr_hash_t* parse_form_from_GET(request_rec *r) {
   return parse_form_from_string(r, r->args);
 }
 
-static int parse_form_from_POST(request_rec* r, apr_hash_t** form) {
+static int parse_form_from_POST(request_rec* r, apr_hash_t** form, int json_data) {
   int bytes, eos;
   apr_size_t count;
   apr_status_t rv;
@@ -747,11 +772,171 @@ static int parse_form_from_POST(request_rec* r, apr_hash_t** form) {
     ap_log_error(APLOG_MARK, APLOG_ERR, 0, NULL,
 		 "Found form data: %s", buf);
 #endif
-  *form = parse_form_from_string(r, buf);
-  
+
+  if(json_data) {
+    *form = parse_json_from_string(r, buf);
+  } else {
+    *form = parse_form_from_string(r, buf);
+  }
+
   return OK;
 
 }
+
+static apr_hash_t *parse_json_from_string(request_rec * r, char *p) {
+  apr_hash_t *form;
+  int in_set = 0;
+  int is_array = 0;
+  char *values;
+  char *cur_key = NULL;
+
+  form = apr_hash_make(r->pool);
+
+  for(; *p != '\0'; p++) {
+    switch(*p) {
+    case '\0':
+#ifdef DEBUG
+	ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+		      "Premature end of data, exiting");
+#endif
+      return NULL;
+
+    case ' ': case '\t': case '\n': case '\r':
+    case ',':
+      break;
+
+    case '{':
+      if(in_set) {
+#ifdef DEBUG
+	ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+		      "We only accept flat json, error, found a {");
+#endif
+	return NULL;
+      }
+      in_set = 1;
+      break;
+
+    case '"':
+      p++;
+      if(cur_key) {
+	char* value = get_value(r, &p);
+#ifdef DEBUG
+	ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+		      "Found value: %s", value);
+#endif
+	values = apr_hash_get(form, cur_key, APR_HASH_KEY_STRING);
+	if(values != NULL) {
+          values = apr_pstrcat(r->pool, values, "&", value, NULL);
+        } else {
+  	  values = apr_pstrdup(r->pool, value);
+        }
+	apr_hash_set(form, cur_key, APR_HASH_KEY_STRING, values);
+
+	if(!is_array) {
+	    cur_key = NULL;
+        }
+
+      } else {
+	cur_key = parse_key(r, &p);
+#ifdef DEBUG
+	ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+		      "Found key: %s", cur_key);
+#endif
+      }
+
+      break;
+    case '-': case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8': case '9':
+      {
+	char* pe;
+	long i; double d;
+	i = strtoll(p, &pe, 0);
+	if (pe==p || errno==ERANGE) {
+	  ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+			"Invalid number %s", p);
+	  return NULL;
+	}
+	if (*pe=='.' || *pe=='e' || *pe=='E') { // double value
+	  d = strtod(p, &pe);
+	  if (pe==p || errno==ERANGE) {
+	    ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+	                  "Invalid number %s", p);
+	    return NULL;
+	  }
+	  pe = apr_psprintf(r->pool, "%lf", d);
+	}
+	else {
+	  pe = apr_itoa(r->pool, i);
+	}
+	values = apr_hash_get(form, cur_key, APR_HASH_KEY_STRING);
+	if(values != NULL) {
+          values = apr_pstrcat(r->pool, values, "&", pe, NULL);
+        } else {
+  	  values = pe;
+	  if(!is_array) {
+	    cur_key = NULL;
+          }
+        }
+	apr_hash_set(form, cur_key, APR_HASH_KEY_STRING, values);
+      }
+    case '[':
+      is_array = 1;
+      break;
+    case ']':
+      cur_key = NULL;
+      is_array = 0;
+      break;
+
+    case '}':
+      if(cur_key) {
+#ifdef DEBUG
+	ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+		      "Premature end of json, we're still in a tag");
+#endif
+	return NULL;
+      }
+    } // end switch
+
+  }
+
+  return form;
+}
+
+static char* parse_key(request_rec * r, char **p) {
+  char* key;
+  char* end_quote;
+
+  end_quote = strchr(*p, '"');
+  if(end_quote) {
+    *end_quote = '\0';
+    // We don't need to copy the key since we now have a null terminated string
+    // in the middle of the original string
+    key = *p;
+    //    key = apr_pstrdup(r->pool, *p);
+    *p = end_quote;
+    return key;
+  }
+
+  return NULL;
+}
+
+static char* get_value(request_rec * r, char** p) {
+  char *end_quote;
+  char* value;
+  apr_size_t len;
+
+  end_quote = strchr(*p, '"');
+
+  if(end_quote) {
+    *end_quote = '\0';
+    apr_unescape_url(NULL, *p, APR_ESCAPE_STRING, NULL, NULL, 0, &len);
+    value = *p;
+    *p = end_quote;
+    return value;
+  }
+
+  return NULL;
+}
+
 
 /*
 ** find the last occurrance of find in string
