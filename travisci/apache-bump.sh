@@ -29,6 +29,16 @@ apachectl -k graceful
 sleep 1
 ls -l ${APACHE_FAIDX_DIR}/.libs/
 
+curl "http://localhost:8000/faidx?set=human&location=1%3A1000-2000"
+curl "http://localhost:8000/faidx?set=human&location=Y%3A1000-2000"
+curl "http://localhost:8000/faidx/sets"
+curl "http://localhost:8000/faidx/locations/cat/"
+curl "http://localhost:8000/faidx/locations/human/"
+
+apachectl -k stop
+sleep 1
+ls -l ${APACHE_FAIDX_DIR}/.libs/
+
 exit
 
 (sudo sh -c '. /etc/apache2/envvars; /usr/sbin/apache2 -X')&
