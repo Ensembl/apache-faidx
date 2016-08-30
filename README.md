@@ -1,6 +1,6 @@
 # apache-faidx
 
-# Apache directives
+## Apache directives
 
 ```
 LoadModule faidx_module /path/to/mod_faidx.so
@@ -14,7 +14,7 @@ FaidxSet cat /faidx/files/Felis_catus.Felis_catus_6.2.dna.fa
 
 ```
 
-Example curl command:
+## Example curl command
 
 ```
 curl "http://localhost/faidx?set=human&location=9%3A10%2C000-15%2C000"
