@@ -30,7 +30,7 @@ sleep 1
 ls -l ${APACHE_FAIDX_DIR}/.libs/
 
 curl "http://localhost:8000/faidx?set=human&location=1%3A1000-2000"
-curl "http://localhost:8000/faidx?set=human&location=Y%3A1000-2000"
+curl -H "Content-type: text/x-fasta" "http://localhost:8000/faidx?set=human&location=Y%3A1000-2000"
 curl "http://localhost:8000/faidx/sets"
 curl "http://localhost:8000/faidx/locations/cat/"
 curl "http://localhost:8000/faidx/locations/human/"
