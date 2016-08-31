@@ -32,6 +32,7 @@ curl -H "Accept: text/x-fasta" -H 'Accept: application/json' -X POST -d 'set=hum
 curl "http://localhost:8000/faidx/sets"
 curl "http://localhost:8000/faidx/locations/cat/"
 curl "http://localhost:8000/faidx/locations/human/"
+curl -X HEAD "http://localhost:8000/faidx/locations/human/"
 
 apachectl -k graceful
 sudo sync
@@ -48,6 +49,7 @@ curl -H "Accept: text/x-fasta" -H 'Accept: application/json' -X POST -d 'set=hum
 curl "http://localhost:8000/faidx/sets"
 curl "http://localhost:8000/faidx/locations/cat/"
 curl "http://localhost:8000/faidx/locations/human/"
+curl -X HEAD "http://localhost:8000/faidx/locations/human/"
 
 apachectl -k graceful
 sudo sync
@@ -64,6 +66,7 @@ curl -H "Accept: text/x-fasta" -H 'Accept: application/json' -X POST -d 'set=hum
 curl "http://localhost:8000/faidx/sets"
 curl "http://localhost:8000/faidx/locations/cat/"
 curl "http://localhost:8000/faidx/locations/human/"
+curl -X HEAD "http://localhost:8000/faidx/locations/human/"
 
 # Stop apache so it writes out the coverall output
 apachectl -k stop
