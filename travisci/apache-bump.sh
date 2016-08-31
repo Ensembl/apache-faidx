@@ -33,6 +33,7 @@ curl "http://localhost:8000/faidx/sets"
 curl "http://localhost:8000/faidx/locations/cat/"
 curl "http://localhost:8000/faidx/locations/human/"
 curl -X HEAD "http://localhost:8000/faidx/locations/human/"
+curl "http://localhost:8000/faidx/locations/mouse/"
 
 apachectl -k graceful
 sudo sync
@@ -50,6 +51,7 @@ curl "http://localhost:8000/faidx/sets"
 curl "http://localhost:8000/faidx/locations/cat/"
 curl "http://localhost:8000/faidx/locations/human/"
 curl -X HEAD "http://localhost:8000/faidx/locations/human/"
+curl "http://localhost:8000/faidx/locations/mouse/"
 
 apachectl -k graceful
 sudo sync
@@ -67,6 +69,7 @@ curl "http://localhost:8000/faidx/sets"
 curl "http://localhost:8000/faidx/locations/cat/"
 curl "http://localhost:8000/faidx/locations/human/"
 curl -X HEAD "http://localhost:8000/faidx/locations/human/"
+curl "http://localhost:8000/faidx/locations/mouse/"
 
 # Stop apache so it writes out the coverall output
 apachectl -k stop
