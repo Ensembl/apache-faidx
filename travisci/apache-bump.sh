@@ -43,7 +43,7 @@ curl "http://localhost:8000/faidx/locations/human/"
 # Stop apache so it writes out the coverall output
 apachectl -k stop
 sudo sync
-sleep 2
+sleep 5
 ls -l ${APACHE_FAIDX_DIR}/.libs/
 
 exit
