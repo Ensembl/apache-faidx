@@ -25,7 +25,8 @@ ps auxww|grep [a]pache2
 curl "http://localhost:8000/faidx?set=human&location=1%3A1000-2000"
 curl "http://localhost:8000/faidx?set=human&location=Y%3A1000-2000"
 curl -H "Content-type: text/x-fasta" "http://localhost:8000/faidx?set=human&location=1%3A1000-2000"
-curl 'http://rest.ensembl.org/lookup/id?species=mouse' -H 'Content-type: application/json' -X POST -d '{"location": ["1:1000-2000", "1:3000-3500"], "set": "human"}' http://localhost/faidx/
+curl -H 'Content-type: application/json' -X POST -d '{"location": ["1:1000-2000", "1:3000-3500"], "set": "human"}' http://localhost:8000/faidx/
+curl -H 'Content-type: text/x-fasta' -X POST -d '{"location": ["1:1000-2000", "1:3000-3500"], "set": "human"}' http://localhost:8000/faidx/
 curl "http://localhost:8000/faidx/sets"
 curl "http://localhost:8000/faidx/locations/cat/"
 curl "http://localhost:8000/faidx/locations/human/"
