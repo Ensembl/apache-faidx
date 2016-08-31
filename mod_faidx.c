@@ -62,6 +62,8 @@ static int Faidx_handler(request_rec* r) {
   char* uri_ptr;
   const char* ctype_str;
   int ctype;
+  const char* accept_str;
+  int accept;
   char* sets_verb = "sets";
   char* locations_verb = "locations/";
 
@@ -81,17 +83,26 @@ static int Faidx_handler(request_rec* r) {
     return HTTP_INTERNAL_SERVER_ERROR;
   }
 
+  /* We only accept in POST bodies urlencoded forms or json,
+     if you don't say it's a form, we're assuming it's json */
   ctype_str = apr_table_get(r->headers_in, "Content-Type");
   if(ctype_str && (strcasestr(ctype_str, 
 			  "application/x-www-form-urlencoded")
 	       != NULL)) {
     ctype = CONTENT_WWWFORM;
-  } else if(ctype_str && (strcasestr(ctype_str, 
-				"text/x-fasta")
-		     != NULL)) {
-    ctype = CONTENT_FASTA;
   } else {
     ctype = CONTENT_JSON;
+  }
+
+  /* We only speak fasta or json, unless you ask for fasta,
+     you're getting json */
+  accept_str = apr_table_get(r->headers_in, "Accept");
+  if(accept_str && (strcasestr(accept_str,
+			       "text/x-fasta")
+		    != NULL)) {
+    accept = CONTENT_FASTA;
+  } else {
+    accept = CONTENT_JSON;
   }
 
   /* Get our list of faidx objects */
@@ -154,7 +165,7 @@ static int Faidx_handler(request_rec* r) {
     return HTTP_INTERNAL_SERVER_ERROR;
   }
 
-  if(ctype == CONTENT_FASTA) {
+  if(accept == CONTENT_FASTA) {
     ap_set_content_type(r, "text/x-fasta") ;
   } else {
     ap_set_content_type(r, "application/json") ;
@@ -184,7 +195,7 @@ static int Faidx_handler(request_rec* r) {
     Loc_count = 0;
 
     /* Start JSON header */
-    if(ctype != CONTENT_FASTA) {
+    if(accept != CONTENT_FASTA) {
       ap_rputs( "{\n", r );
     }
 
@@ -195,7 +206,7 @@ static int Faidx_handler(request_rec* r) {
 		    "Error, no set specified!");
       ap_rputs( "    \"Error\": \"No set specified\"\n}\n", r );
       return OK;
-    } else if(ctype != CONTENT_FASTA) {
+    } else if(accept != CONTENT_FASTA) {
       /* Spit out the set we'll be using in the JSON response */
       ap_rprintf(r,"    \"set\": \"%s\",", set);
     }
@@ -247,7 +258,7 @@ static int Faidx_handler(request_rec* r) {
 	*seq = '\0';
       }
 
-      if(ctype == CONTENT_FASTA) {
+      if(accept == CONTENT_FASTA) {
 	char* header = apr_psprintf(r->pool, "%s [%s]", set, key);
 	print_fasta(r, header, seq, *seq_len);
       } else {
@@ -275,7 +286,7 @@ static int Faidx_handler(request_rec* r) {
   }
 
     /* Close the JSON */
-    if(ctype != CONTENT_FASTA) {
+    if(accept != CONTENT_FASTA) {
       ap_rputs( "}\n", r );
     }
 
