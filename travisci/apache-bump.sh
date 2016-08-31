@@ -68,6 +68,7 @@ lcov --directory . --capture --output-file coverage.info && lcov --list coverage
 
 echo "Killing apache"
 sudo pkill -n --signal HUP apache2
+sudo sync
 sleep 1
 
 lcov --directory . --capture --output-file coverage.info && lcov --list coverage.info
@@ -83,4 +84,5 @@ curl "http://localhost/faidx/locations/human/"
 echo "Killing apache"
 sudo pkill -n --signal HUP apache2
 sleep 5
+sudo sync
 lcov --directory . --capture --output-file coverage.info && lcov --list coverage.info
