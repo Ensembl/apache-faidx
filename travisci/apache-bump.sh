@@ -34,6 +34,8 @@ curl "http://localhost:8000/faidx/locations/cat/"
 curl "http://localhost:8000/faidx/locations/human/"
 curl -X HEAD "http://localhost:8000/faidx/locations/human/"
 curl "http://localhost:8000/faidx/locations/mouse/"
+curl -H "Accept: text/x-fasta" "http://localhost:8000/faidx?location=1%3A1000-2000"
+curl -H "Accept: text/x-fasta" "http://localhost:8000/faidx?set=human"
 
 apachectl -k graceful
 sudo sync
@@ -52,6 +54,8 @@ curl "http://localhost:8000/faidx/locations/cat/"
 curl "http://localhost:8000/faidx/locations/human/"
 curl -X HEAD "http://localhost:8000/faidx/locations/human/"
 curl "http://localhost:8000/faidx/locations/mouse/"
+curl -H "Accept: text/x-fasta" "http://localhost:8000/faidx?location=1%3A1000-2000"
+curl -H "Accept: text/x-fasta" "http://localhost:8000/faidx?set=human"
 
 apachectl -k graceful
 sudo sync
@@ -70,6 +74,8 @@ curl "http://localhost:8000/faidx/locations/cat/"
 curl "http://localhost:8000/faidx/locations/human/"
 curl -X HEAD "http://localhost:8000/faidx/locations/human/"
 curl "http://localhost:8000/faidx/locations/mouse/"
+curl -H "Accept: text/x-fasta" "http://localhost:8000/faidx?location=1%3A1000-2000"
+curl -H "Accept: text/x-fasta" "http://localhost:8000/faidx?set=human"
 
 # Stop apache so it writes out the coverall output
 apachectl -k stop
