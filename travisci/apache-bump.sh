@@ -17,6 +17,7 @@ sudo sed -i -e 's@/var/run/apache2@/tmp@g' /etc/apache2/envvars
 
 # Start a single tread as the travis user
 (. /etc/apache2/envvars; /usr/sbin/apache2 -X)&
+sudo sync
 sleep 2
 ps auxww|grep [a]pache2
 
@@ -27,7 +28,8 @@ curl "http://localhost:8000/faidx/sets"
 curl "http://localhost:8000/faidx/locations/cat/"
 curl "http://localhost:8000/faidx/locations/human/"
 
-apachectl -k graceful
+#apachectl -k graceful
+sudo sync
 sleep 2
 ls -l ${APACHE_FAIDX_DIR}/.libs/
 
@@ -40,6 +42,7 @@ curl "http://localhost:8000/faidx/locations/human/"
 
 # Stop apache so it writes out the coverall output
 apachectl -k stop
+sudo sync
 sleep 2
 ls -l ${APACHE_FAIDX_DIR}/.libs/
 
@@ -68,7 +71,6 @@ lcov --directory . --capture --output-file coverage.info && lcov --list coverage
 
 echo "Killing apache"
 sudo pkill -n --signal HUP apache2
-sudo sync
 sleep 1
 
 lcov --directory . --capture --output-file coverage.info && lcov --list coverage.info
@@ -84,5 +86,4 @@ curl "http://localhost/faidx/locations/human/"
 echo "Killing apache"
 sudo pkill -n --signal HUP apache2
 sleep 5
-sudo sync
 lcov --directory . --capture --output-file coverage.info && lcov --list coverage.info
