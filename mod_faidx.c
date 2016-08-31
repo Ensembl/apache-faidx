@@ -278,8 +278,6 @@ static int Faidx_handler(request_rec* r) {
 	seq = NULL;
       }
 
-      /* DO WE NEED TO DEALLOCATE seq ? */
-
       Loc_count++;    
     }
 
