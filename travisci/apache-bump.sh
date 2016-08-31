@@ -2,6 +2,7 @@
 # work correctly
 
 lcov --directory . --zerocounters
+ls -l ${APACHE_FAIDX_DIR}/.libs/
 
 # Set up the permissions to run as travis user
 sudo chmod 666 /var/log/apache2/error.log
@@ -27,7 +28,8 @@ curl "http://localhost:8000/faidx/locations/cat/"
 curl "http://localhost:8000/faidx/locations/human/"
 
 apachectl -k graceful
-sleep 1
+sleep 2
+ls -l ${APACHE_FAIDX_DIR}/.libs/
 
 # Batch two of calls
 curl "http://localhost:8000/faidx?set=human&location=1%3A1000-2000"
@@ -38,6 +40,7 @@ curl "http://localhost:8000/faidx/locations/human/"
 
 # Stop apache so it writes out the coverall output
 apachectl -k stop
-sleep 1
+sleep 2
+ls -l ${APACHE_FAIDX_DIR}/.libs/
 
 exit
