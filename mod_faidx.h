@@ -39,7 +39,7 @@ static void* mod_Faidx_svr_conf(apr_pool_t* pool, server_rec* s);
 static Faidx_Obj_holder* mod_Faidx_fetch_fai(server_rec* s, apr_pool_t* pool,  const char* hFai, int make);
 static const char* modFaidx_set_handler(cmd_parms* cmd, void* cfg, const char* HandlerName);
 static const char* modFaidx_init_set(cmd_parms* cmd, void* cfg, const char* SetName, const char* SetFilename);
-void print_fasta(request_rec* r, char* header, char* seq);
+void print_fasta(request_rec* r, char* header, char* seq, int seq_len);
 
 static apr_hash_t *parse_form_from_string(request_rec *r, char *args);
 static apr_hash_t* parse_form_from_GET(request_rec *r);

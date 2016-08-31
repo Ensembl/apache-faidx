@@ -242,9 +242,14 @@ static int Faidx_handler(request_rec* r) {
 			  "Received sequence %s", seq);
 #endif
 
+      if(seq == NULL) {
+	seq = apr_pcalloc(r->pool, sizeof(char));
+	*seq = '\0';
+      }
+
       if(ctype == CONTENT_FASTA) {
 	char* header = apr_psprintf(r->pool, "%s [%s]", set, key);
-	print_fasta(r, header, seq);
+	print_fasta(r, header, seq, *seq_len);
       } else {
 	if(Loc_count > 0) {
 	  ap_rputs(",\n", r);
@@ -252,17 +257,12 @@ static int Faidx_handler(request_rec* r) {
 	  ap_rputs("\n", r);
 	}
 
-	if(*seq_len >= 0) {
-	  /* We received a result */
-	  ap_rprintf(r, "    \"%s\": \"%s\"", key, seq);
-	} else {
-	  ap_rprintf(r, "    \"%s\": \"ERROR\"", key);
-	}
+	ap_rprintf(r, "    \"%s\": \"%s\"", key, seq);
       }
 
       /* fai_fetch malloc's the sequence returned, we're
 	 responsible for freeing it */
-      if(seq) {
+      if(seq && *seq_len > 0) {
 	free(seq);
 	seq = NULL;
       }
@@ -364,14 +364,18 @@ static int Faidx_locations_handler(request_rec* r, char* set) {
 
  */
 
-void print_fasta(request_rec* r, char* header, char* seq) {
+void print_fasta(request_rec* r, char* header, char* seq, int seq_len) {
   char* seq_line;
   int seq_remaining;
 
   /* Create a null padded string, we're taking advantage of knowing
      our terminating character is already \0 */
   seq_line = apr_pcalloc(r->pool, ( MAX_FASTA_LINE_LENGTH + 1 ));
-  seq_remaining = strlen(seq);
+  seq_remaining = seq_len;
+
+  if(seq_len <= 0) {
+    return;
+  }
 
   ap_rprintf(r, ">%s\n", header);
 
