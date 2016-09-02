@@ -327,8 +327,6 @@ static int Faidx_sets_handler(request_rec* r, Faidx_Obj_holder* Fais) {
 static int Faidx_locations_handler(request_rec* r, char* set) {
   int loc_count = 0;
   Faidx_Obj_holder* Fai_Obj;
-  faidx_keys* keys;
-  faidx_keys* t_key;
 
   Fai_Obj = mod_Faidx_fetch_fai(r->server, NULL, set, 0);
 
@@ -341,27 +339,24 @@ static int Faidx_locations_handler(request_rec* r, char* set) {
   }
 
   /* Ask faidx for a list of all available keys */
-  keys = faidx_fetch_keys(Fai_Obj->pFai);
+  //  keys = faidx_fetch_keys(Fai_Obj->pFai);
+  loc_count = faidx_nseq(Fai_Obj->pFai);
   ap_rputs( "[", r );
 
-  while(keys != NULL) {
-    if(loc_count > 0) {
+  for(int i = 0; i < loc_count; i++) {
+    if(i > 0) {
       ap_rputs( ",", r );
     }
 
-    ap_rprintf( r, "\"%s\"", keys->key );
-
-    /* We're responsible for nuking the keys as we use them */
-    t_key = keys;
-    keys = (faidx_keys*)keys->next;
-    free(t_key);
-
-    loc_count++;
+    ap_rprintf( r, "{\"%s\": %d}", 
+		faidx_iseq(Fai_Obj->pFai, i), 
+		faidx_seq_len(Fai_Obj->pFai, faidx_iseq(Fai_Obj->pFai, i) ) );
   }
 
   ap_rputs( "]\n", r );
 
   return OK;
+
 }
 
 /* 
