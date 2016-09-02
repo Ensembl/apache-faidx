@@ -334,26 +334,26 @@ static int Faidx_locations_handler(request_rec* r, char* set) {
      set, that's not an error, it's just an empty set to
      send back*/
   if(Fai_Obj == NULL || Fai_Obj->pFai == NULL) {
-    ap_rputs( "[]\n", r );
+    ap_rputs( "{}\n", r );
     return OK;
   }
 
   /* Ask faidx for a list of all available keys */
   //  keys = faidx_fetch_keys(Fai_Obj->pFai);
   loc_count = faidx_nseq(Fai_Obj->pFai);
-  ap_rputs( "[", r );
+  ap_rputs( "{", r );
 
   for(int i = 0; i < loc_count; i++) {
     if(i > 0) {
       ap_rputs( ",", r );
     }
 
-    ap_rprintf( r, "{\"%s\": %d}", 
+    ap_rprintf( r, "\"%s\": %d", 
 		faidx_iseq(Fai_Obj->pFai, i), 
 		faidx_seq_len(Fai_Obj->pFai, faidx_iseq(Fai_Obj->pFai, i) ) );
   }
 
-  ap_rputs( "]\n", r );
+  ap_rputs( "}\n", r );
 
   return OK;
 
