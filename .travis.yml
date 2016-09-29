@@ -8,8 +8,8 @@ cache:
     - $HOME/build/lairdm/apache-faidx/htslib
 
 env:
-  - COVERALLS=true
   - COVERALLS=false
+  - COVERALLS=true
 
 addons:
   apt:
