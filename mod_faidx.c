@@ -189,10 +189,12 @@ static int Faidx_handler(request_rec* r) {
     char *last;
     unsigned int Loc_count;
     char *seq;
+    int translate;
     int *seq_len = apr_pcalloc(r->pool, sizeof(int));
     /* Is this a memory leak? */
 
     Loc_count = 0;
+    translate = 0;
 
     /* Start JSON header */
     if(accept != CONTENT_FASTA) {
@@ -225,6 +227,12 @@ static int Faidx_handler(request_rec* r) {
       }
     }
 
+    /* See if we've been asked to translate the sequence */
+    val = apr_hash_get(formdata, "translate", APR_HASH_KEY_STRING);
+    if(val != NULL) {
+      translate = 1;
+    }
+
     /* Try and get the one or more locations from the
        request data */
     val = apr_hash_get(formdata, "location", APR_HASH_KEY_STRING);
@@ -246,7 +254,12 @@ static int Faidx_handler(request_rec* r) {
 		    "Found location %s", key);
 #endif
 
-      seq = fai_fetch(tFai_Obj->pFai, key, seq_len);
+      if(translate == 1) {
+	seq = tark_translate_seq(tFai_Obj->pFai, key, seq_len);
+      } else {
+      	seq = tark_fetch_seq(tFai_Obj->pFai, key, seq_len);
+      }
+	//      seq = fai_fetch(tFai_Obj->pFai, key, seq_len);
 
 #ifdef DEBUG
       ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,

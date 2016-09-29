@@ -2,6 +2,7 @@
 #define __MOD_FAIDX_H__
 
 #include "htslib/faidx.h"
+#include "htslib_fetcher.h"
 
 static const int MAX_SIZE = 16384;
 static const int MAX_FASTA_LINE_LENGTH = 70;
