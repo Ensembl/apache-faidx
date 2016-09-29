@@ -320,6 +320,8 @@ char** tark_fetch_seqs(faidx_t* fai, const char *str, int *seq_len, int *nseqs, 
 	}
       }
 
+    } else {
+      seqs = NULL;
     }
   } else {
     seqs = NULL;

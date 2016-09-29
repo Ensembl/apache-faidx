@@ -10,8 +10,8 @@ int main() {
 
   puts("here");
   seq = tark_fetch_seq(fai, "1:2000-3000,10000-11000:-1", &seq_len);
-  printf("%s\n", seq);
   if(seq) {
+    printf("%s\n", seq);
     puts("freeing");
     free(seq);
   }
