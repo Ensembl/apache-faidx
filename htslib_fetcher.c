@@ -144,6 +144,98 @@ char* tark_translate_seq(faidx_t* fai, const char *str, int *seq_len) {
     
 }
 
+char* tark_iterator_fetch_seq(seq_iterator_t* siterator, int *seq_len) {
+  char* s = NULL;
+  char* seg_seq = NULL;
+  int bp_retrieved = 0;
+  int bp_from_segment = 0;
+  int len, seg_start, seg_end, segment_remaining;
+  int bp_remaining = siterator->seq_length - siterator->seq_iterated;
+  seq_location_t *segment = NULL;
+
+  *seq_len = *seq_len > bp_remaining ? bp_remaining : *seq_len;
+
+  if(bp_remaining <= 0) return NULL;
+
+  s = malloc(*seq_len + 1);
+  if(s == NULL) { // If we aren't able to allocate the memory, bail.
+    *seq_len = 0;
+    return NULL;
+  }
+  s[*seq_len] = NULL;
+
+  // If we're on the reverse strand we need to seek the interator,
+  // otherwise our seeking should be in the correct place as we retrieve
+  if( siterator->strand == -1 &&
+      ! tark_iterator_seek( siterator,
+			    ( bp_remaining - *seq_len ) ) ) {
+      free(s);
+      return NULL;
+  }
+
+  while(bp_retrieved < *seq_len) {
+    segment = &(siterator->locations[siterator->segment_ptr]);
+    segment_remaining = segment->length - siterator->segment_bp_ptr;
+    bp_remaining = *seq_len - bp_retrieved;
+    seg_start = segment->start + siterator->segment_bp_ptr;
+
+    if(segment_remaining > bp_remaining) {
+      // We only want part of this segment
+      seg_end = segment->start + siterator->segment_bp_ptr + bp_remaining - 1;
+      siterator->segment_bp_ptr += bp_remaining;
+    } else {
+      // We want all of the segment, plus move to next segment
+      seg_end = segment->end;
+      siterator->segment_bp_ptr = 0;
+      siterator->segment_ptr++;
+    }
+
+    seg_seq = faidx_fetch_seq(siterator->fai,
+			      siterator->seq_name, 
+			      seg_start,
+			      seg_end,
+			      &len);
+
+    memcpy(s+bp_retrieved, seg_seq, len);
+    free(seg_seq);
+    bp_retrieved += len;
+  }
+
+  siterator->seq_iterated += bp_retrieved;
+
+  if(siterator->strand == -1) {
+    puts("reversing");
+    tark_revcomp_seq(s);      
+  }
+
+  return s;
+
+}
+
+int tark_iterator_seek(seq_iterator_t* siterator, unsigned int bp) {
+  int bp_count = 0;
+  int i;
+
+  if(bp > siterator->seq_length) {
+    return 0; // error, too far
+  }
+
+  for(i = 0; bp_count <= bp; i++) {
+    if((bp_count + siterator->locations[i].length) < bp) {
+      bp_count += siterator->locations[i].length;
+      continue;
+    }
+
+    siterator->segment_ptr = i;
+    siterator->segment_bp_ptr = bp - bp_count;
+
+    return 1;
+  }
+
+  return 0; // something is very wrong
+
+}
+
 char* tark_revcomp_seq(char *seq) {
   char tmp;
   int i, k, l, l2;
@@ -260,6 +352,101 @@ char* tark_translate_seqs(char **seqs, int seq_len, int nseqs, int strand) {
   }
 
   return seq;
+}
+
+// Create a interator for retrieving a sequence based on one or more
+// locations in the reference
+//
+// Args
+// [1] fai, pointer to faidx_t structure references
+// [2] seq_name, const char* string with the sequence name
+// [3] locations, const char* string with the location(s), format 1-100[,200-300,500-1000]
+//     commas are allowed in the location string
+//
+// Return
+// seq_iterator_t* or NULL, pointer to a seq_iterator object or NULL if failure
+
+seq_iterator_t* tark_fetch_iterator(faidx_t* fai, const char *seq_name, const char *locs) {
+  int c, i, l, k, location_end, len, beg, end, nseqs;
+  seq_iterator_t* siterator;
+  char* s;
+
+  // If we don't actually have this sequence, return an error (NULL)
+  if(!faidx_has_seq(fai, seq_name)) {
+    return NULL;
+  }
+
+  l = strlen(locs);
+  s = (char*)malloc(l+1);
+  // remove spaces and count the sequences, 
+  // we could be fancier, but this is pretty much as efficient
+  location_end = -1;
+  nseqs = 1;
+  for (i = k = 0; i < l; ++i) {
+    if ( isspace(locs[i]) ) { continue; }
+    if (locs[i] == ':') { location_end = i; break; }
+    if (locs[i] == ',') { nseqs++; }
+    s[k++] = locs[i];
+  }
+  s[k] = 0; l = k;
+  puts("spaces removed\n");
+  printf("compacted: %s\n", s);
+
+  // Let's assume things are going to go well, make our iterator structure
+  siterator = calloc(1, sizeof(seq_iterator_t));
+  siterator->locations = malloc( sizeof(seq_location_t) * nseqs );
+
+  // Let's start filling in the details
+  siterator->fai = fai;
+  siterator->seq_name = strdup(seq_name);
+  if(location_end >= 0) {
+    siterator->strand = atoi(locs + location_end + 1); // deal with strand later, if it's valid or not
+  } // no strand is positive strand, tough.
+
+  c = nseqs - 1;
+  for(k--; k>=0; k--) {
+    if(s[k] == '-') {
+      end = atoi(s + k + 1);
+      if (end > 0) --end;
+      s[k] = 0;
+    } else if(s[k] == ',' || k == 0) {
+      if( k == 0 ) k--; // Correct k for the last iteration so the ptr addition works
+      beg = atoi(s + k + 1);
+      if (beg > 0) --beg;
+      s[k] = 0;
+
+      // Start must be less than end and
+      // the end is less then the sequence length
+      if( end < beg || 
+	  faidx_seq_len(fai, seq_name) < end ) {
+	tark_free_iterator(siterator);
+	free(s);
+	return NULL;
+      }
+
+      siterator->locations[c].start = beg;
+      siterator->locations[c].end = end;
+      siterator->locations[c].length = end - beg + 1;
+      
+      siterator->seq_length += siterator->locations[c].length;
+      c--;
+    }
+  }
+
+  free(s);
+  return siterator;
+}
+
+void tark_free_iterator(seq_iterator_t* siterator) {
+  if( siterator != NULL ) {
+    if( siterator->locations != NULL ) {
+      free(siterator->locations);
+    }
+    if( siterator->seq_name != NULL ) {
+      free(siterator->seq_name);
+    }
+    free(siterator);
+  }
 }
 
 char** tark_fetch_seqs(faidx_t* fai, const char *str, int *seq_len, int *nseqs, int *strand) {

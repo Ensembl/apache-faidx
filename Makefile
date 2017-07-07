@@ -11,6 +11,7 @@ install:
 	apxs2 -i -n faidx .libs/mod_faidx.so
 
 DRIVER_OBJ = fetcher_driver.o htslib_fetcher.o
+DRIVER_ITER_OBJ = fetcher_driver2.o htslib_fetcher.o
 DEPS = htslib_fetcher.h
 DRIVER_C = htslib_fetcher.c fetcher_driver.c
 
@@ -18,6 +19,9 @@ DRIVER_C = htslib_fetcher.c fetcher_driver.c
 	gcc -fPIC -L$(HTSLIB_DIR) -I$(HTSLIB_DIR) -Wl,-rpath=$(HTSLIB_DIR) -c -o $@ $<
 
 fetcher_driver: $(DRIVER_OBJ)
+	gcc -L$(HTSLIB_DIR) -I$(HTSLIB_DIR) -Wl,-rpath=$(HTSLIB_DIR) -o $@ $^ -lhts -lz 
+
+fetcher_iter_driver: $(DRIVER_ITER_OBJ)
 	gcc -L$(HTSLIB_DIR) -I$(HTSLIB_DIR) -Wl,-rpath=$(HTSLIB_DIR) -o $@ $^ -lhts -lz 
 
 fetcher_test: $(DRIVER_C)

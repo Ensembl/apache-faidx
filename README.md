@@ -1,5 +1,9 @@
 # apache-faidx
 
+## Installation
+
+You *must* use the prefork worker module as htslib is not thread safe. Workers such as MPM will create unpredictable results.
+
 ## Apache directives
 
 ```
