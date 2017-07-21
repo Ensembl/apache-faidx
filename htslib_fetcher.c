@@ -1,10 +1,22 @@
 /* htslib seq fetch and assembly module
- *
- * Wrapper between mod_faidx and htslib to fetch one or
- * more sequences and either return that or translate
- * to a protein sequence.
- *
- */
+
+ Wrapper between mod_faidx and htslib to fetch one or
+ more sequences and either return that or translate
+ to a protein sequence.
+
+ Copyright [2016-2017] EMBL-European Bioinformatics Institute
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+*/
 
 // String format: Y:1-100,200-300,600-700:1
 
@@ -144,7 +156,75 @@ char* tark_translate_seq(faidx_t* fai, const char *str, int *seq_len) {
     
 }
 
-char* tark_iterator_fetch_seq(seq_iterator_t* siterator, int *seq_len) {
+char* tark_iterator_fetch_translated_seq(seq_iterator_t* siterator, int *seq_len, char* seq_ptr) {
+  int r;
+  int i;
+  int k = 0;
+  char* seq;
+  char* translated_seq;
+
+  tark_iterator_translated_length(siterator, &r, NULL);
+
+  if(r <= 0) {
+    *seq_len = 0;
+    return NULL;
+  }
+
+  /* If the remaining translated sequence is greater than or equal
+     to the amount we've been asked for, fantastic, life is simple.*/
+  if(r <= *seq_len) {
+    *seq_len = r;
+  } else {
+    *seq_len /= 3;
+  }
+
+  // Reuse r
+  r = (*seq_len) * 3;
+  printf("raw length: %d\n", r);
+  seq = tark_iterator_fetch_seq(siterator, &r, NULL);
+  printf("returned: %d\n", r);
+
+  if(seq_ptr == NULL) {
+    translated_seq = malloc((*seq_len) + 1);
+  } else {
+    translated_seq = seq_ptr;
+  }
+  translated_seq[(*seq_len)] = '\0';
+
+  printf("fetch_length: %d, r: %d\n", *seq_len, r);
+
+  for(i = 2; i < r; i+=3) { // Work our way through the current row
+    printf("i: %d\n", i);
+    translated_seq[k] = codons[trnconv[(int)seq[i-2]]]
+                              [trnconv[(int)seq[i-1]]]
+                              [trnconv[(int)seq[i]]];
+      printf("codon: %c%c%c, p: %c\n", seq[i-2], seq[i-1], seq[i], translated_seq[k]);
+      k++;
+    }
+
+  printf("r: %d, i: %d\n", r, i);
+  if(r == i) { // we have 1 leftover bp
+    puts("2 left");
+    translated_seq[k] = codons[trnconv[(int)seq[i-2]]]
+                              [trnconv[(int)seq[i-1]]]
+                              [4];
+    printf("codon: %c%c%c, p: %c\n", seq[i-2], seq[i-1], 'N', translated_seq[k]);
+
+  } else if(++r == i) { // we have 2 leftover bp
+    puts("1 left");
+    translated_seq[k] = codons[trnconv[(int)seq[i-2]]]
+                              [4]
+                              [4];
+    printf("codon: %c%c%c, p: %c\n", seq[i-2], 'N', 'N', translated_seq[k]);
+  }
+
+  free(seq);
+
+  return translated_seq;
+
+}
+
+char* tark_iterator_fetch_seq(seq_iterator_t* siterator, int *seq_len, char* seq_ptr) {
   char* s = NULL;
   char* seg_seq = NULL;
   int bp_retrieved = 0;
@@ -157,11 +237,18 @@ char* tark_iterator_fetch_seq(seq_iterator_t* siterator, int *seq_len) {
 
   if(bp_remaining <= 0) return NULL;
 
-  s = malloc(*seq_len + 1);
-  if(s == NULL) { // If we aren't able to allocate the memory, bail.
-    *seq_len = 0;
-    return NULL;
+  /* We allow the user to send us a pointer to a string they want
+     us to fill in, rather than allocating our own */
+  if(seq_ptr == NULL) {
+    s = malloc(*seq_len + 1);
+    if(s == NULL) { // If we aren't able to allocate the memory, bail.
+      *seq_len = 0;
+      return NULL;
+    }
+  } else {
+    s = seq_ptr;
   }
+
   s[*seq_len] = NULL;
 
   // If we're on the reverse strand we need to seek the interator,
@@ -169,8 +256,13 @@ char* tark_iterator_fetch_seq(seq_iterator_t* siterator, int *seq_len) {
   if( siterator->strand == -1 &&
       ! tark_iterator_seek( siterator,
 			    ( bp_remaining - *seq_len ) ) ) {
+
+    /* If we weren't given a pointer by the caller,
+       the memory isn't ours to free */
+    if(seq_ptr == NULL) {
       free(s);
-      return NULL;
+    }
+    return NULL;
   }
 
   while(bp_retrieved < *seq_len) {
@@ -234,6 +326,22 @@ int tark_iterator_seek(seq_iterator_t* siterator, unsigned int bp) {
 
   return 0; // something is very wrong
 
+}
+
+int tark_iterator_locations_count(seq_iterator_t* siterator) {
+  int bp_counted = 0;
+  int i;
+
+  /* Sanity checking */
+  if(siterator->locations == NULL) {
+    return 0;
+  }
+
+  for(i = 0; bp_counted < siterator->seq_length; i++) {
+    bp_counted += siterator->locations[i].length;
+  }
+
+  return i;
 }
 
 char* tark_revcomp_seq(char *seq) {
@@ -354,17 +462,56 @@ char* tark_translate_seqs(char **seqs, int seq_len, int nseqs, int strand) {
   return seq;
 }
 
-// Create a interator for retrieving a sequence based on one or more
-// locations in the reference
-//
-// Args
-// [1] fai, pointer to faidx_t structure references
-// [2] seq_name, const char* string with the sequence name
-// [3] locations, const char* string with the location(s), format 1-100[,200-300,500-1000]
-//     commas are allowed in the location string
-//
-// Return
-// seq_iterator_t* or NULL, pointer to a seq_iterator object or NULL if failure
+int tark_iterator_translated_length(seq_iterator_t* siterator, int* remaining, int* unpadded_remaining) {
+  int length;
+  int remainder;
+
+  length = siterator->seq_length / 3;
+  if(siterator->seq_length % 3 != 0) length++;
+
+  remainder = siterator->seq_length - siterator->seq_iterated;
+
+  /* Receiving the amount remaining is optional,
+     if the client gives NULL for remaining, we won't
+     bother to calculate it. */
+  if(remaining != NULL) {
+    *remaining = remainder / 3;
+    if(remainder % 3 != 0) (*remaining)++;
+  }
+
+  if(unpadded_remaining != NULL) {
+    *unpadded_remaining = remainder / 3;
+  }
+
+  return length;
+}
+
+int tark_iterator_remaining(seq_iterator_t* siterator, int translated) {
+  int remainder;
+
+  remainder = siterator->seq_length - siterator->seq_iterated;
+
+  if(translated) {
+    return (remainder % 3 != 0) ? (remainder / 3) + 1 : (remainder / 3);
+  }
+
+  return remainder;
+}
+
+/*
+   Create a interator for retrieving a sequence based on one or more
+   locations in the reference
+
+   Args
+   [1] fai, pointer to faidx_t structure references
+   [2] seq_name, const char* string with the sequence name
+   [3] locations, const char* string with the location(s), format 1-100[,200-300,500-1000]
+       commas are allowed in the location string. If NULL, we want the entire sequence,
+       create an iterator of length 1 - [length of sequence]
+
+   Return
+   seq_iterator_t* or NULL, pointer to a seq_iterator object or NULL if failure
+*/
 
 seq_iterator_t* tark_fetch_iterator(faidx_t* fai, const char *seq_name, const char *locs) {
   int c, i, l, k, location_end, len, beg, end, nseqs;
@@ -374,6 +521,22 @@ seq_iterator_t* tark_fetch_iterator(faidx_t* fai, const char *seq_name, const ch
   // If we don't actually have this sequence, return an error (NULL)
   if(!faidx_has_seq(fai, seq_name)) {
     return NULL;
+  }
+
+  /* Special case, if we're not given a set of locations, we assume we
+     want the entire sequence. So create an iterator that covers that. */
+  if(locs == NULL) {
+    siterator = calloc(1, sizeof(seq_iterator_t));
+    siterator->locations = malloc( sizeof(seq_location_t) );
+    siterator->fai = fai;
+    siterator->seq_name = strdup(seq_name);
+    siterator->strand = 1;
+    siterator->seq_length = faidx_seq_len(fai, seq_name);
+    ((seq_location_t *)siterator->locations)->start = 1;
+    ((seq_location_t *)siterator->locations)->end = siterator->seq_length;
+    ((seq_location_t *)siterator->locations)->length = siterator->seq_length;
+
+    return siterator;
   }
 
   l = strlen(locs);
