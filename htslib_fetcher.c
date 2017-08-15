@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include "htslib_fetcher.h"
+#include <stdio.h>
 
 const char* codons[5][5] = {
  //   AA        AC        AG        AT        AX
@@ -160,29 +161,39 @@ char* tark_iterator_fetch_translated_seq(seq_iterator_t* siterator, int *seq_len
   int r;
   int i;
   int k = 0;
+  int fetch_len = *seq_len;
+  int bytes_to_cr = -1;
+  int iterated_length;
+  int translated_length;
   char* seq;
   char* translated_seq;
 
-  tark_iterator_translated_length(siterator, &r, NULL);
+  translated_length = tark_iterator_translated_length(siterator, &r, NULL);
+  iterated_length = translated_length - r;
 
   if(r <= 0) {
     *seq_len = 0;
     return NULL;
   }
 
-  /* If the remaining translated sequence is greater than or equal
-     to the amount we've been asked for, fantastic, life is simple.*/
-  if(r <= *seq_len) {
-    *seq_len = r;
+  /* Do we have a line length? */
+  if(siterator->line_length) {
+    fetch_len = tark_iterator_adjusted_seq_len(*seq_len, r, siterator->seq_iterated, siterator->line_length, &bytes_to_cr);
   } else {
-    *seq_len /= 3;
+    fetch_len = r < *seq_len ? r : *seq_len;
   }
 
+  /* Is remaining translated sequence less than what we're told
+     our full window would use with CR added? If yes, then only
+     fetch the remaining abount of sequence, the CR calculations
+     should still work out fine. */
+  //  if(r < fetch_len) {
+  //    fetch_len = r;
+  //  }
+
   // Reuse r
-  r = (*seq_len) * 3;
-  printf("raw length: %d\n", r);
-  seq = tark_iterator_fetch_seq(siterator, &r, NULL);
-  printf("returned: %d\n", r);
+  r = fetch_len * 3;
+  seq = _tark_iterator_fetch_seq(siterator, &r, NULL, 0);
 
   if(seq_ptr == NULL) {
     translated_seq = malloc((*seq_len) + 1);
@@ -191,55 +202,151 @@ char* tark_iterator_fetch_translated_seq(seq_iterator_t* siterator, int *seq_len
   }
   translated_seq[(*seq_len)] = '\0';
 
-  printf("fetch_length: %d, r: %d\n", *seq_len, r);
-
   for(i = 2; i < r; i+=3) { // Work our way through the current row
-    printf("i: %d\n", i);
+    //    printf("i: %d\n", i);
+    if(bytes_to_cr == 0) {
+      translated_seq[k] = '\n';
+      k++;
+      bytes_to_cr = siterator->line_length;
+    }
     translated_seq[k] = codons[trnconv[(int)seq[i-2]]]
                               [trnconv[(int)seq[i-1]]]
                               [trnconv[(int)seq[i]]];
-      printf("codon: %c%c%c, p: %c\n", seq[i-2], seq[i-1], seq[i], translated_seq[k]);
-      k++;
-    }
+    //    printf("codon: %c%c%c, p: %c\n", seq[i-2], seq[i-1], seq[i], translated_seq[k]);
+    k++;
+    bytes_to_cr--;
+  }
 
-  printf("r: %d, i: %d\n", r, i);
   if(r == i) { // we have 1 leftover bp
-    puts("2 left");
+    //    puts("2 left");
     translated_seq[k] = codons[trnconv[(int)seq[i-2]]]
                               [trnconv[(int)seq[i-1]]]
                               [4];
-    printf("codon: %c%c%c, p: %c\n", seq[i-2], seq[i-1], 'N', translated_seq[k]);
+    //    printf("codon: %c%c%c, p: %c\n", seq[i-2], seq[i-1], 'N', translated_seq[k]);
+    k++;
 
   } else if(++r == i) { // we have 2 leftover bp
-    puts("1 left");
+    //    puts("1 left");
     translated_seq[k] = codons[trnconv[(int)seq[i-2]]]
                               [4]
                               [4];
-    printf("codon: %c%c%c, p: %c\n", seq[i-2], 'N', 'N', translated_seq[k]);
+    //    printf("codon: %c%c%c, p: %c\n", seq[i-2], 'N', 'N', translated_seq[k]);
+    k++;
   }
 
+  translated_seq[k] = '\0';
+  *seq_len = k;
   free(seq);
 
   return translated_seq;
 
 }
 
+/* We need to determine how many bytes to print before we add our first
+   carriage return. Then how many bytes to retrieve in total, taking in
+   to account all the CR that will be mixed in.
+
+   Given the iterator and remaining window available, reset the window
+   parameter to the bytes to retrieve from the faidx and return the
+   bytes to write before we should print our first CR.
+
+   This is unix type OS specific! It will not work in DOS/Windows based
+   operating systems (LF vs CR + LF)
+*/
+
+int tark_iterator_adjusted_seq_len(int window, int bp_remaining, int bp_iterated, int line_length, int* bytes_to_cr) {
+  int remaining_line;
+  int bp_possible;
+  int window_remaining;
+  int cr_count;
+  int possible_lines;
+  int bp_in_lines;
+  int bp_with_crs;
+  static int start_window_with_cr = 0;
+
+  /* How many bytes could be possibly send? */
+  bp_possible = bp_remaining < window ? bp_remaining : window;
+
+  /* Don't be silly, why are you asking for the bytes to retrieve
+     when there's no line length set? */
+  if(line_length == 0) {
+    *bytes_to_cr = -1;
+    return bp_possible;
+  }
+
+  /* How many bytes before the first CR needs to be sent */
+  if(start_window_with_cr) {
+    start_window_with_cr = 0;
+    *bytes_to_cr = 0;
+  } else {
+    *bytes_to_cr = line_length - (bp_iterated % line_length);
+  }
+
+  /* If we have less bytes to send than until the next end of line,
+     tell the caller to just fetch that many */
+  if(*bytes_to_cr > bp_possible) {
+    return bp_possible;
+  }
+
+  cr_count = 1;
+
+  /* We know we have at least to the next end of line worth of
+     bytes to send */
+  window_remaining = window - (*bytes_to_cr + 1);
+
+  /* How many lines could we send after the first cr? */
+  possible_lines = window_remaining / (line_length + 1);
+
+  /* How many bp does this represent? */
+  bp_in_lines = possible_lines * line_length;
+
+  cr_count += possible_lines;
+
+  /* The last training bit after the last end of line */
+  window_remaining -= (bp_in_lines + possible_lines);
+
+  /* If the window remaining had an exact number of lines, we're
+     at the end of a line and don't add that remaining CR*/
+  if(window_remaining == line_length) {
+    cr_count--;
+        start_window_with_cr = 1;
+  }
+
+  /* In a theoretical full window, how many total bp would we
+     want to send? */
+  bp_with_crs = *bytes_to_cr + bp_in_lines + window_remaining;
+
+  /* If the remaining bp is less than what we'd send in the window,
+     tell the caller to fetch that. Otherwise we want to suck the full
+     amount that would fit in our window */
+  return bp_possible < bp_with_crs ? bp_possible : bp_with_crs;
+}
+
 char* tark_iterator_fetch_seq(seq_iterator_t* siterator, int *seq_len, char* seq_ptr) {
+  return _tark_iterator_fetch_seq(siterator, seq_len, seq_ptr, siterator->line_length);
+}
+
+char* _tark_iterator_fetch_seq(seq_iterator_t* siterator, int *seq_len, char* seq_ptr, int do_line_length) {
   char* s = NULL;
   char* seg_seq = NULL;
   int bp_retrieved = 0;
-  int bp_from_segment = 0;
-  int len, seg_start, seg_end, segment_remaining;
+  int cr = 0;
+  int len, seg_start, seg_end, segment_remaining, fetch_len;
+  int bytes_to_cr = -1;
   int bp_remaining = siterator->seq_length - siterator->seq_iterated;
   seq_location_t *segment = NULL;
 
-  *seq_len = *seq_len > bp_remaining ? bp_remaining : *seq_len;
+  //  *seq_len = *seq_len > bp_remaining ? bp_remaining : *seq_len;
 
-  if(bp_remaining <= 0) return NULL;
+  if(bp_remaining <= 0) {
+    *seq_len = 0;
+    return NULL;
+  }
 
   /* We allow the user to send us a pointer to a string they want
      us to fill in, rather than allocating our own */
   if(seq_ptr == NULL) {
+    //s = calloc(*seq_len + 1, 1);
     s = malloc(*seq_len + 1);
     if(s == NULL) { // If we aren't able to allocate the memory, bail.
       *seq_len = 0;
@@ -251,11 +358,17 @@ char* tark_iterator_fetch_seq(seq_iterator_t* siterator, int *seq_len, char* seq
 
   s[*seq_len] = NULL;
 
+  if(do_line_length) {
+    fetch_len = tark_iterator_adjusted_seq_len(*seq_len, bp_remaining, siterator->seq_iterated, siterator->line_length, &bytes_to_cr);
+  } else {
+    fetch_len = *seq_len > bp_remaining ? bp_remaining : *seq_len;
+  }
+
   // If we're on the reverse strand we need to seek the interator,
   // otherwise our seeking should be in the correct place as we retrieve
   if( siterator->strand == -1 &&
       ! tark_iterator_seek( siterator,
-			    ( bp_remaining - *seq_len ) ) ) {
+			    ( bp_remaining - fetch_len ) ) ) {
 
     /* If we weren't given a pointer by the caller,
        the memory isn't ours to free */
@@ -265,10 +378,11 @@ char* tark_iterator_fetch_seq(seq_iterator_t* siterator, int *seq_len, char* seq
     return NULL;
   }
 
-  while(bp_retrieved < *seq_len) {
+  /* Loop through fetching segments until we reach our limit */
+  while(bp_retrieved < fetch_len) {
     segment = &(siterator->locations[siterator->segment_ptr]);
     segment_remaining = segment->length - siterator->segment_bp_ptr;
-    bp_remaining = *seq_len - bp_retrieved;
+    bp_remaining = fetch_len - bp_retrieved;
     seg_start = segment->start + siterator->segment_bp_ptr;
 
     if(segment_remaining > bp_remaining) {
@@ -288,20 +402,84 @@ char* tark_iterator_fetch_seq(seq_iterator_t* siterator, int *seq_len, char* seq
 			      seg_end,
 			      &len);
 
-    memcpy(s+bp_retrieved, seg_seq, len);
+    /* If we have a line length, use our custom memcpy wrapper
+       that will handle adding the CR as needed */
+    if(do_line_length) {
+      cr += memcpy_with_cr(s+bp_retrieved+cr, seg_seq, len, siterator->line_length, &bytes_to_cr);
+      bp_retrieved += len;
+
+      /* Very specific case where we need to pad out one last EOL */
+      if(bytes_to_cr == 0 && (bp_retrieved+cr+1) == *seq_len) {
+	*(char*)(s+bp_retrieved+cr) = '\n';
+	cr++;
+      }
+    } else {
+      memcpy(s+bp_retrieved, seg_seq, len);
+      bp_retrieved += len;
+    }
     free(seg_seq);
-    bp_retrieved += len;
   }
 
   siterator->seq_iterated += bp_retrieved;
+  *seq_len = bp_retrieved+cr;
+  s[*seq_len] = NULL;
 
   if(siterator->strand == -1) {
-    puts("reversing");
+    //    puts("reversing");
     tark_revcomp_seq(s);      
   }
 
   return s;
 
+}
+
+/* We're going to be a little unsafe with our memory copying here because the code that
+   calls us should be sane in how it passes parameters. We're not going to recheck thing
+   that the caller shouldn't have gotten wrong. */
+
+inline int memcpy_with_cr(void* dest, void* src, int len, int line_len, int *bytes_to_cr) {
+  int cr = 0;
+
+  if(len < *bytes_to_cr) {
+    memcpy(dest, src, len);
+    *bytes_to_cr -= len;
+    return 0;
+  }
+
+  /* We have to inject a CR before we start looping on line lengths */
+  if(*bytes_to_cr > 0) {
+    memcpy(dest, src, *bytes_to_cr);
+    dest += *bytes_to_cr;
+    src += *bytes_to_cr;
+    *(char*)dest = '\n';
+    cr++;
+    len -= *bytes_to_cr;
+  } else if(*bytes_to_cr == 0) {
+    *(char*)dest = '\n';
+    cr++;
+  }
+
+  while(len > line_len) {
+    memcpy(dest+cr, src, line_len);
+    dest += line_len;
+    src += line_len;
+    *(char*)(dest+cr) = '\n';
+    cr++;
+    len -= line_len;
+  }
+   
+  memcpy(dest+cr, src, len);
+  *bytes_to_cr = line_len - len;
+
+  return cr;
+}
+
+void tark_iterator_set_line_length(seq_iterator_t* siterator, unsigned int length) {
+  if(siterator == NULL) {
+    return;
+  }
+
+  siterator->line_length = length;
 }
 
 int tark_iterator_seek(seq_iterator_t* siterator, unsigned int bp) {
@@ -354,6 +532,9 @@ char* tark_revcomp_seq(char *seq) {
   // Two counters, less maths than doing a subtraction each time
   k = l - 1;
   for(i = 0; i < l2; i++) {
+    /* Keep any CR in place when reversing */
+    if(seq[k] == '\n') { k--; }
+    if(seq[i] == '\n') { i++; }
     tmp = revcom[ trnconv[(int)seq[k]] ];
     seq[k] = revcom[ trnconv[(int)seq[i]] ];
     seq[i] = tmp;
@@ -413,7 +594,6 @@ char* tark_translate_seqs(char **seqs, int seq_len, int nseqs, int strand) {
   }
 
   for(r = 0; ; r++) { // For each row in the set of sequences
-    printf("seq: %s, r: %d\n", seqs[r], r);
     l = strlen(seqs[r]);
     lenmod3 = l - ((l-i) % 3);
 
@@ -532,8 +712,8 @@ seq_iterator_t* tark_fetch_iterator(faidx_t* fai, const char *seq_name, const ch
     siterator->seq_name = strdup(seq_name);
     siterator->strand = 1;
     siterator->seq_length = faidx_seq_len(fai, seq_name);
-    ((seq_location_t *)siterator->locations)->start = 1;
-    ((seq_location_t *)siterator->locations)->end = siterator->seq_length;
+    ((seq_location_t *)siterator->locations)->start = 0;
+    ((seq_location_t *)siterator->locations)->end = siterator->seq_length - 1;
     ((seq_location_t *)siterator->locations)->length = siterator->seq_length;
 
     return siterator;
@@ -553,7 +733,6 @@ seq_iterator_t* tark_fetch_iterator(faidx_t* fai, const char *seq_name, const ch
   }
   s[k] = 0; l = k;
   puts("spaces removed\n");
-  printf("compacted: %s\n", s);
 
   // Let's assume things are going to go well, make our iterator structure
   siterator = calloc(1, sizeof(seq_iterator_t));
@@ -626,7 +805,6 @@ char** tark_fetch_seqs(faidx_t* fai, const char *str, int *seq_len, int *nseqs, 
     if (! isspace(str[i]) ) s[k++] = str[i];
   s[k] = 0; l = k;
   puts("spaces removed\n");
-  printf("compacted: %s\n", s);
 
   for(i = 0; i < l; i++) if(s[i] == ':') break; // Find the first colon
   if( i < l ) {

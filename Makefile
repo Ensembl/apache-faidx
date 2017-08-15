@@ -11,7 +11,7 @@ install:
 	apxs2 -i -n faidx .libs/mod_faidx.so
 
 DRIVER_OBJ = fetcher_driver.o htslib_fetcher.o
-DRIVER_ITER_OBJ = fetcher_driver2.o htslib_fetcher.o
+DRIVER_ITER_OBJ = fetcher_iter_driver.o htslib_fetcher.o
 DEPS = htslib_fetcher.h
 DRIVER_C = htslib_fetcher.c fetcher_driver.c
 

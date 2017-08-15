@@ -359,6 +359,10 @@ static int Faidx_handler(request_rec* r) {
 	return HTTP_BAD_REQUEST;
       }
 
+      if(accept == CONTENT_FASTA || accept == CONTENT_TEXT) {
+	tark_iterator_set_line_length(siterator, MAX_FASTA_LINE_LENGTH);
+      }
+
       /* Make a deep copy of the iterator in to the APR pool */
       aiterator = (seq_iterator_t*)apr_array_push(location_iterators);
       memcpy( (void*)aiterator, (void *)siterator, sizeof(seq_iterator_t) );
@@ -407,6 +411,10 @@ static int Faidx_handler(request_rec* r) {
 	ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
 		      "Error, problem fetching the iterator, %s %s", sequence_name, loc_str);
 	return HTTP_BAD_REQUEST;
+      }
+
+      if(accept == CONTENT_FASTA || accept == CONTENT_TEXT) {
+	tark_iterator_set_line_length(siterator, MAX_FASTA_LINE_LENGTH);
       }
 
       /* Make a deep copy of the iterator in to the APR pool */
@@ -488,7 +496,9 @@ static int Faidx_handler(request_rec* r) {
       /* See if we've filled the buffer and flush if need be */
       if(Faidx_append_or_send( r, NULL, 0, &buf_remaining, &send_buf_cur, 0 )) {
 	flushed = 1;
+	//ap_rputs("\nbreak\n", r);
       }
+
     }
 
     Loc_count++;

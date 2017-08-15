@@ -25,7 +25,7 @@
 #include "htslib_fetcher.h"
 
 static const int MAX_SIZE = 16384;
-static const int MAX_FASTA_LINE_LENGTH = 70;
+static const int MAX_FASTA_LINE_LENGTH = 60;
 static const int CHUNK_SIZE = 1048576; /* Chunk size, 1MB */
 static const int MAX_SEQUENCES = 25; /* Maximum number of sequences a user is allowed to request, not implemented */
 static const int MAX_HEADER = 120; /* Maximum size of a header chunk, including NUL */

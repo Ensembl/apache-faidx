@@ -23,6 +23,7 @@ int main() {
   faidx_t* fai;
   char *seq;
   int seq_len;
+  int actual_len;
   seq_iterator_t* siterator;
   int reset_seq_len = 500;
   int remaining;
@@ -30,7 +31,9 @@ int main() {
 
   fai = fai_load("/home/lairdm/Downloads/Homo_sapiens.GRCh38.dna.toplevel.fa.gz");
 
+  //  siterator = tark_fetch_iterator(fai, "1", "1-248956422");
   siterator = tark_fetch_iterator(fai, "1", "2000-3000,11000-12000:-1");
+  tark_iterator_set_line_length(siterator, 60);
 
   if(siterator == NULL) {
     puts("NO iterator!\n");
@@ -39,27 +42,31 @@ int main() {
   seq_len = reset_seq_len;
 
   printf("Sequence length: %d\n", siterator->seq_length);
-  printf("Translated length: %d\n", tark_iterator_translated_length(siterator, &remaining, &unpadded_remaining));
-  printf("Translation remaining %d\n", remaining);
-  printf("Unpadded translation remaining %d\n\n", unpadded_remaining);
+  //  printf("Translated length: %d\n", tark_iterator_translated_length(siterator, &remaining, &unpadded_remaining));
+  //  printf("Translation remaining %d\n", remaining);
+  //  printf("Unpadded translation remaining %d\n\n", unpadded_remaining);
 
   while(seq_len > 0) {
     seq_len = reset_seq_len;
+    //seq = tark_iterator_fetch_seq(siterator, &seq_len, NULL);
     seq = tark_iterator_fetch_translated_seq(siterator, &seq_len, NULL);
     printf("seq len returned: %d\n", seq_len);
 
     if(seq) {
-      printf("%s\n", seq);
-      printf("fetched: %d\n", seq_len);
-      puts("freeing");
+      actual_len = strlen(seq);
+      printf("\nfetched: %d, actual: %d\n", seq_len, actual_len);
+      fprintf(stderr, "%s", seq);
+      //      puts("freeing");
       free(seq);
     }
 
-    tark_iterator_translated_length(siterator, &remaining, &unpadded_remaining);
-    printf("Translation remaining %d\n", remaining);
-    printf("Unpadded translation remaining %d\n\n", unpadded_remaining);
+    //    tark_iterator_translated_length(siterator, &remaining, &unpadded_remaining);
+    //    printf("Translation remaining %d\n", remaining);
+    //    printf("Unpadded translation remaining %d\n\n", unpadded_remaining);
 
   }
+
+  fprintf(stderr, "\n");
 
   tark_free_iterator(siterator);
 

@@ -35,6 +35,7 @@ typedef struct seq_iterator {
   char* location_str;
   unsigned int seq_length;
   unsigned int seq_iterated; // Overall how far along are we
+  unsigned int line_length; // How long a line to print before wrapping
   int strand;
   seq_location_t* locations;
   unsigned int segment_ptr; // Which segment are we on
@@ -46,6 +47,9 @@ int tark_iterator_translated_length(seq_iterator_t* siterator, int* remaining, i
 char* tark_fetch_seq(faidx_t* fai, const char *str, int *seq_len);
 char* tark_iterator_fetch_translated_seq(seq_iterator_t* siterator, int *seq_len, char* seq_ptr);
 char* tark_iterator_fetch_seq(seq_iterator_t* siterator, int *seq_len, char* seq_ptr);
+char* _tark_iterator_fetch_seq(seq_iterator_t* siterator, int *seq_len, char* seq_ptr, int do_line_length);
+void tark_iterator_set_line_length(seq_iterator_t* siterator, unsigned int length);
+int tark_iterator_adjusted_seq_len(int window, int bp_remaining, int bp_iterated, int line_length, int* bytes_to_cr);
 int tark_iterator_seek(seq_iterator_t* siterator, unsigned int bp);
 int tark_iterator_locations_count(seq_iterator_t* siterator);
 int tark_iterator_remaining(seq_iterator_t* siterator, int translated);
@@ -55,5 +59,6 @@ char* tark_translate_seqs(char **str, int seq_len, int nseqs, int strand);
 char* tark_revcomp_seq(char *seq);
 char* tark_rev_seq(char* seq);
 char** tark_fetch_seqs(faidx_t* fai, const char *str, int *seq_len, int *nseqs, int *strand);
+inline int memcpy_with_cr(void* dest, void* src, int len, int line_len, int *bytes_to_cr);
 
 #endif
