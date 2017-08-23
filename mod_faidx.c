@@ -204,15 +204,7 @@ static int Faidx_handler(request_rec* r) {
 
     /* See if we've been asked for information on the sets */
     if(!strcmp(uri_ptr, sets_verb)) {
-      if(uri == NULL) {
-	return Faidx_sets_handler(r, Fai_Obj);
-    } else {
-	/* Otherwise, there was a word after the sets verb, hand
-	   it off to tell the user what regions are in that set.
-	   uri will be updated by ap_getword to point at this remaining
-	   word on the uri */
-	return Faidx_locations_handler(r, uri);
-      }
+      return Faidx_sets_handler(r, Fai_Obj);
     } else if( !strcmp(uri_ptr, "region") ) {
       t = REGION_FETCH;
       break;
@@ -242,6 +234,9 @@ static int Faidx_handler(request_rec* r) {
 		  "No set name given");
     return HTTP_BAD_REQUEST;
   }
+
+    ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
+		  "verb found: %s", uri);
 
   /* Next we need to find what verb has been used for
      sequence fetching, if it's a checksum we need to
@@ -374,10 +369,11 @@ static int Faidx_handler(request_rec* r) {
       aiterator->location_str = apr_psprintf(r->pool, "1-%d", aiterator->seq_length);
       tark_free_iterator(siterator);
     } else {
-      ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
-		    "Error, no location(s) specified!");
-      ap_rputs( "    \"Error\": \"No location(s) specified\"\n}\n", r );
-      return HTTP_BAD_REQUEST;
+      /* We have a set name but no locations and no sequence name from a checksum,
+	 the user must be asking for all the sequences in that set.
+       */
+      return Faidx_locations_handler(r, set);
+
     }
   } else {
     /* We do have locations, so let's go through them and make iterators */
