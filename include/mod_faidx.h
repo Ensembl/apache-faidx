@@ -21,28 +21,20 @@
 #ifndef __MOD_FAIDX_H__
 #define __MOD_FAIDX_H__
 
+#include "typedef.h"
 #include "htslib/faidx.h"
 #include "htslib_fetcher.h"
 
-static const int MAX_SIZE = 16384;
-static const int MAX_FASTA_LINE_LENGTH = 60;
-static const int CHUNK_SIZE = 1048576; /* Chunk size, 1MB */
-static const int MAX_SEQUENCES = 25; /* Maximum number of sequences a user is allowed to request, not implemented */
-static const int MAX_HEADER = 120; /* Maximum size of a header chunk, including NUL */
+//static const int MAX_SIZE = 16384;
+//static const int MAX_FASTA_LINE_LENGTH = 60;
+//static const int CHUNK_SIZE = 1048576; /* Chunk size, 1MB */
+//static const int MAX_SEQUENCES = 25; /* Maximum number of sequences a user is allowed to request, not implemented */
+//static const int MAX_HEADER = 120; /* Maximum size of a header chunk, including NUL */
 
 #define OFFSET(remaining) (CHUNK_SIZE - remaining - 1)
 
-#define CONTENT_JSON 1
-#define CONTENT_FASTA 2
-#define CONTENT_WWWFORM 3
-#define CONTENT_TEXT 4
 
-#define UNKNOWN_VERB 0
-#define REGION_FETCH 1
-#define CHECKSUM_MD5 2
-#define CHECKSUM_SHA1 3
-
-/* Representation of a Faidx object */
+/* RETIRED - Representation of a Faidx object */
 typedef struct {
   faidx_t* pFai;
   /* Name of the fai set, ie homo_sapiens_grch37 */
@@ -52,6 +44,7 @@ typedef struct {
   void* nextFai;
 } Faidx_Obj_holder;
 
+/* RETIRED */
 typedef struct {
   /* The Fai object this checksum refers to */
   Faidx_Obj_holder* tFai;
@@ -65,15 +58,15 @@ typedef struct {
 
 /* server config structure */
 typedef struct {
-  Faidx_Obj_holder* FaiList;
-  Faidx_Checksum_obj* MD5List;
-  Faidx_Checksum_obj* SHA1List;
+  apr_hash_t* checksums;  /*  */
+  files_mgr* files;         /* Files manager object pointer */
+  apr_hash_t* labels;       /* Labels for sequence aliases seen, eg md5, sha1 */
+  int labels_endpoints;     /* Boolean flag on if labels based endpoints are
+			       enabled. eg /sequence/md5/<hash>/ */
+  //  Faidx_Obj_holder* FaiList;
+  //  Faidx_Checksum_obj* MD5List;
+  //  Faidx_Checksum_obj* SHA1List;
 } mod_Faidx_svr_cfg;
-
-#ifndef strEQ
-/* original in mod_ssl.h, protect the def just in case it's included */
-#define strEQ(s1,s2) (strcmp((s1),(s2)) == 0)
-#endif
 
 static int Faidx_handler(request_rec* r);
 static int Faidx_sets_handler(request_rec* r, Faidx_Obj_holder* Fais);

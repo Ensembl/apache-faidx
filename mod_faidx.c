@@ -46,6 +46,20 @@ static void* mod_Faidx_svr_conf(apr_pool_t* pool, server_rec* s) {
   /* Create the config object for this module */
   mod_Faidx_svr_cfg* svr = apr_pcalloc(pool, sizeof(mod_Faidx_svr_cfg));
 
+  /* Make the pool for checksums */
+  svr->checksums = apr_hash_make(pool);
+
+  /* Initialize the files manager and get back a
+     pointer to the control object */
+  svr->files = init_files_mgr(pool);
+
+  /* Create the hash for alias type labels (md5, sha1, etc) */
+  svr->labels = apr_hash_make(pool);
+
+  /* Disable labels based endpoints by default, eg
+     /sequence/md5/<sequence>/ */
+  svr->labels_endpoints = 0;
+
   /* Create the initial empty Fai linked list */
   svr->FaiList = apr_pcalloc(pool, sizeof(Faidx_Obj_holder));
   svr->FaiList->pFai = NULL;
