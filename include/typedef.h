@@ -49,7 +49,7 @@ typedef struct {
 /* Representation of a checksum */
 typedef struct {
   const char* checksum_type;              /* Type of checksum */
-  unsigned char file[APR_MD5_DIGESTSIZE]; /* Identifier for the file,
+  unsigned char file[MD5_DIGEST_LENGTH];  /* Identifier for the file,
 					     stored as an MD5 hash */
   sequence_obj* sequence;                 /* Sequence within the file,
 					     used to get the name of the

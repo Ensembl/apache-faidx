@@ -58,11 +58,12 @@ typedef struct {
 
 /* server config structure */
 typedef struct {
-  apr_hash_t* checksums;  /*  */
+  apr_hash_t* checksums;    /* Checksums allowed to be queried, from seqfile record blocks */
   files_mgr* files;         /* Files manager object pointer */
   apr_hash_t* labels;       /* Labels for sequence aliases seen, eg md5, sha1 */
   int labels_endpoints;     /* Boolean flag on if labels based endpoints are
 			       enabled. eg /sequence/md5/<hash>/ */
+  int cachesize;            /* The cachesize for number of file handles to keep open */
   //  Faidx_Obj_holder* FaiList;
   //  Faidx_Checksum_obj* MD5List;
   //  Faidx_Checksum_obj* SHA1List;

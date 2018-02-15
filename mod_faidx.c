@@ -738,6 +738,8 @@ int Faidx_create_footer(char* buf, int format) {
 
 /* Add error reporting?  "Could not load model" etc */
 
+/* TODO handle cachesize, adjust the files_mgr_resize_cache */
+
 static int mod_Faidx_hook_post_config(apr_pool_t *pconf, apr_pool_t *plog,
 				      apr_pool_t *ptemp, server_rec *s) {
 

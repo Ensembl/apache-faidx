@@ -22,6 +22,10 @@
 #define __MOD_FAIDX_INIT_MODULE_H__
 
 #define BEGIN_SEQFILE "<SeqFile"
-#define END_SEQ_FILE "</SeqFile>"
+#define END_SEQFILE "</SeqFile>"
+
+#define SEQFILE_CACHESIZE_DIRECTIVE seqfile_cachesize
+#define LABELS_ENDPOINT_DIRECTIVE labels_endpoint
+#define SEQ_DIRECTIVE seq
 
 #endif
