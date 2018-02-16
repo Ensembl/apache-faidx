@@ -98,17 +98,39 @@ seq_file_t* files_mgr_use_seqfile(files_mgr_t* fm, const unsigned char* seqfile_
   return seqfile;
 }
 
+/* Lookup a seqfile by path, this returns the seqfile object but the
+   caller may not assume the file is open and ready to use.
+
+   Returns NULL if not found.  */
+
+seq_file_t* files_mgr_lookup_file(files_mgr_t* fm, char* path) {
+  unsigned char md5[MD5_DIGEST_LENGTH];
+
+  /* Create the digest for the filename */
+  MD5((const unsigned char *)seqfile->path, strlen(seqfile->path), &md5);
+
+  return files_mgr_get_seqfile(fm, (const char*)md5);
+}
+
 /* Add a new seqfile to the collection.
  */
 
 const unsigned char* files_mgr_add_seqfile(files_mgr_t* fm, char* path, int type) {
   apr_pool_t *mp;
   seq_file_t *seqfile;
-  unsigned char* md5;
+  unsigned char md5[MD5_DIGEST_LENGTH];
   int rv;
 
   /* Grab our memory pool */
   mp = fm->mp;
+
+  /* Create the digest for the filename */
+  MD5((const unsigned char *)seqfile->path, strlen(seqfile->path), &md5);
+
+  /* If we've already seen this file before, skip */
+  if(apr_hash_get(fm->seqfiles, md5, MD5_DIGEST_LENGTH) != NULL) {
+    return apr_pmemdup(mp, (void*)md5, MD5_DIGEST_LENGTH);
+  }
 
   seqfile = (seq_file_t*)apr_pcalloc(mp, sizeof(seq_file_t));
 
@@ -123,12 +145,9 @@ const unsigned char* files_mgr_add_seqfile(files_mgr_t* fm, char* path, int type
        situation. */
   }
 
-  md5 = apr_palloc(mp, MD5_DIGEST_LENGTH);
-  MD5((const unsigned char *)seqfile->path, strlen(seqfile->path), md5);
-
+  /* Put the seqfile in the collection */
   apr_hash_set(fm->seqfiles,
-	       (const void*)md5,
-	       /*	       apr_pmemdup(mp, md5, MD5_DIGEST_LENGTH),*/
+	       (const void*)apr_pmemdup(mp, (void*)md5, MD5_DIGEST_LENGTH),
 	       MD5_DIGEST_LENGTH,
 	       (const void*)seqfile);
 

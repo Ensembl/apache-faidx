@@ -28,4 +28,7 @@
 #define LABELS_ENDPOINT_DIRECTIVE labels_endpoint
 #define SEQ_DIRECTIVE seq
 
+static const char *seqfile_section(cmd_params * cmd, void * _cfg, const chat * arg);
+checksum_obj* parse_seq_token(cmd_params * cmd, char** seqname, char** seq_checksum,  char* args);
+
 #endif

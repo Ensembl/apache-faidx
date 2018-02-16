@@ -29,7 +29,7 @@ AP_INIT_TAKE1(LABELS_ENDPOINT_DIRECTIVE, ap_set_flag_slot,
  (void *)APR_OFFSETOF(mod_Faidx_svr_cfg, labels_endpoints),
  RSRC_CONF, "Enable labels endpoints, limited to 'on' or 'off'"),
 AP_INIT_RAW_ARGS(BEGIN_SEQFILE, seqfile_section, NULL, EXEC_ON_READ | RSRC_CONF,
-    "Beginning of a sequence file definition section.")
+    "Beginning of a sequence file definition section."),
 
  */
 
@@ -79,6 +79,13 @@ static const char *seqfile_section(cmd_params * cmd, void * _cfg, const chat * a
      file types should we ever have those, determining what it is and
      changing the constant sent in the last argument as appropriate. */
   file = ap_getword_conf(cmd->temp_pool, &arg);
+
+  /* Check for a duplicate, if we've seen this seqfile before, ignore the entire block */
+  if(files_mgr_lookup_file(cfg->files, file) != NULL) {
+	ap_log_error(APLOG_MARK, APLOG,WARNING, 0, NULL, "Warning, seqfile %s has been seen before, ignoring", file);
+	return NULL;
+  }
+
   checksum = files_mgr_add_seqfile(cfg->files, file, FM_FAIDX);
 
   /* This is also where the file type could go in, as a (optional?) second argument */

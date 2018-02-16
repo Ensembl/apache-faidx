@@ -60,37 +60,18 @@ static void* mod_Faidx_svr_conf(apr_pool_t* pool, server_rec* s) {
      /sequence/md5/<sequence>/ */
   svr->labels_endpoints = 0;
 
-  /* Create the initial empty Fai linked list */
-  svr->FaiList = apr_pcalloc(pool, sizeof(Faidx_Obj_holder));
-  svr->FaiList->pFai = NULL;
-  svr->FaiList->fai_set_handler = NULL;
-  svr->FaiList->nextFai = NULL;
-
-  /* Create the empty linked lists for checksums */
-  svr->MD5List = apr_pcalloc(pool, sizeof(Faidx_Checksum_obj));
-  svr->MD5List->tFai = NULL;
-  svr->MD5List->checksum = NULL;
-  svr->MD5List->set = NULL;
-  svr->MD5List->location_name = NULL;
-  svr->MD5List->nextChecksum = NULL;
-
-  svr->SHA1List = apr_pcalloc(pool, sizeof(Faidx_Checksum_obj));
-  svr->SHA1List->tFai = NULL;
-  svr->SHA1List->checksum = NULL;
-  svr->SHA1List->set = NULL;
-  svr->SHA1List->location_name = NULL;
-  svr->SHA1List->nextChecksum = NULL;
-
   return svr;
 }
 
 static const command_rec mod_Faidx_cmds[] = {
-  AP_INIT_TAKE2("FaidxSet", modFaidx_init_set, NULL, RSRC_CONF,
-		"Initialize a faidx set"),
-  AP_INIT_TAKE3("FaidxMD5", modFaidx_set_MD5, NULL, RSRC_CONF,
-		"Add an MD5 alias for a set"),
-  AP_INIT_TAKE3("FaidxSHA1", modFaidx_set_SHA1, NULL, RSRC_CONF,
-		"Add a SHA1 alias for a set"),
+  AP_INIT_FLAG(SEQFILE_CACHESIZE_DIRECTIVE, ap_set_int_slot,
+	       (void *)APR_OFFSETOF(mod_Faidx_svr_cfg, cachesize),
+	       RSRC_CONF, "Set the cache size for seqfiles"),
+  AP_INIT_TAKE1(LABELS_ENDPOINT_DIRECTIVE, ap_set_flag_slot,
+		(void *)APR_OFFSETOF(mod_Faidx_svr_cfg, labels_endpoints),
+		RSRC_CONF, "Enable labels endpoints, limited to 'on' or 'off'"),
+  AP_INIT_RAW_ARGS(BEGIN_SEQFILE, seqfile_section, NULL, EXEC_ON_READ | RSRC_CONF,
+		   "Beginning of a sequence file definition section."),
   { NULL }
 };
 
