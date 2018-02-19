@@ -32,10 +32,6 @@
 #include <openssl/md5.h>
 #include "htslib/faidx.h"
 
-#ifndef DEFAULT_FILES_CACHE_SIZE
-#define DEFAULT_FILES_CACHE_SIZE 100
-#endif
-
 #define FM_FAIDX 1
 
 /* Representation of a sequence file.

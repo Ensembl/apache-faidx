@@ -21,13 +21,6 @@
 #ifndef __MOD_FAIDX_INIT_MODULE_H__
 #define __MOD_FAIDX_INIT_MODULE_H__
 
-#define BEGIN_SEQFILE "<SeqFile"
-#define END_SEQFILE "</SeqFile>"
-
-#define SEQFILE_CACHESIZE_DIRECTIVE seqfile_cachesize
-#define LABELS_ENDPOINT_DIRECTIVE labels_endpoint
-#define SEQ_DIRECTIVE seq
-
 static const char *seqfile_section(cmd_params * cmd, void * _cfg, const chat * arg);
 checksum_obj* parse_seq_token(cmd_params * cmd, char** seqname, char** seq_checksum,  char* args);
 

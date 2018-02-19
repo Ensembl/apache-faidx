@@ -24,11 +24,23 @@
 #include <apr_tables.h>
 #include <apr_md5.h>
 
+#ifndef DEFAULT_FILES_CACHE_SIZE
+#define DEFAULT_FILES_CACHE_SIZE 100
+#endif
+
 #define MAX_SIZE 16384
 #define MAX_FASTA_LINE_LENGTH 60
 #define CHUNK_SIZE 1048576 /* Chunk size, 1MB */
 #define MAX_SEQUENCES 25 /* Maximum number of sequences a user is allowed to request, not implemented */
 #define MAX_HEADER 120 /* Maximum size of a header chunk, including NUL */
+
+#define SEQ_ENDPOINT_DIRECTIVE sequence_base_uri
+#define SEQFILE_CACHESIZE_DIRECTIVE sequence_cachesize
+#define LABELS_ENDPOINT_DIRECTIVE sequence_enable_labels
+#define SEQ_DIRECTIVE seq
+
+#define BEGIN_SEQFILE "<SeqFile"
+#define END_SEQFILE "</SeqFile>"
 
 #define CONTENT_JSON 1
 #define CONTENT_FASTA 2
@@ -36,9 +48,8 @@
 #define CONTENT_TEXT 4
 
 #define UNKNOWN_VERB 0
-#define REGION_FETCH 1
-#define CHECKSUM_MD5 2
-#define CHECKSUM_SHA1 3
+#define METADATA_VERB 1
+#define CHECKSUM_VERB 2
 
 /* Representation of a sequence in a sequence file */
 typedef struct {

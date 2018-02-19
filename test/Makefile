@@ -32,3 +32,9 @@ $(TARGETS) : % : %.o $(DEPS)
 
 #files_manager: $(FILES_MGR_OBJ)
 #	gcc $^ -L/home/lairdm/src/htslib -I/home/lairdm/src/htslib files_manager.o -lhts -lz $(LDFLAGS) $(LDLIBS) -Wl,-rpath=/home/lairdm/src/htslib -o $@
+
+clean:
+	rm -rf *.o *.so *.lo *.slo *.la .libs
+	for target in $(TARGETS); do \
+		rm $(target)
+	done

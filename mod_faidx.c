@@ -60,10 +60,20 @@ static void* mod_Faidx_svr_conf(apr_pool_t* pool, server_rec* s) {
      /sequence/md5/<sequence>/ */
   svr->labels_endpoints = 0;
 
+  /* Set the endpoint url to NULL, so we can detect in the post hook
+     if the user failed to set hte URI component */
+  svr->endpoint_base = NULL;
+
+  /* Set the cache size in case the user doesn't set it in the config */
+  svr->cachesize = DEFAULT_FILES_CACHE_SIZE;
+
   return svr;
 }
 
 static const command_rec mod_Faidx_cmds[] = {
+  AP_INIT_TAKE1(SEQ_ENDPOINT_DIRECTIVE, ap_set_string_slot,
+		(void *)APR_OFFSETOF(mod_Faidx_svr_cfg, endpoint_base),
+		RSRC_CONF, "Base URI for module endpoints"),
   AP_INIT_FLAG(SEQFILE_CACHESIZE_DIRECTIVE, ap_set_int_slot,
 	       (void *)APR_OFFSETOF(mod_Faidx_svr_cfg, cachesize),
 	       RSRC_CONF, "Set the cache size for seqfiles"),
@@ -96,6 +106,10 @@ static int Faidx_handler(request_rec* r) {
   char* uri;
   char* uri_ptr;
   int t = UNKNOWN_VERB;
+  const char* checksum_type = NULL;
+  const char* cheksum = NULL;
+  checksum_obj* checksum_holder;
+
   const char* ctype_str;
   int s; /* Content type of submitted POST, reused as sequence fetched */
   int accept;
@@ -122,20 +136,21 @@ static int Faidx_handler(request_rec* r) {
   int buf_remaining;
   int flushed = 0;
 
-  if ( !r->handler || strcmp(r->handler, "faidx") ) {
-    return DECLINED ;   /* none of our business */
-  } 
-
-  if ( (r->method_number != M_GET) && (r->method_number != M_POST) ) {
-    return HTTP_METHOD_NOT_ALLOWED ;  /* Reject other methods */
-  }
-
   svr
     = ap_get_module_config(r->server->module_config, &faidx_module);
   if(svr == NULL) {
     ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
 		  "Error (svr) is null, it shouldn't be!");
     return HTTP_INTERNAL_SERVER_ERROR;
+  }
+
+  /* Is this our request, check the base URI the user gave us */
+  if ( !r->handler || strcmp(r->handler, svr->endpoint_base) ) {
+    return DECLINED ;   /* none of our business */
+  } 
+
+  if ( (r->method_number != M_GET) && (r->method_number != M_POST) ) {
+    return HTTP_METHOD_NOT_ALLOWED ;  /* Reject other methods */
   }
 
 #ifdef DEBUG
@@ -170,11 +185,10 @@ static int Faidx_handler(request_rec* r) {
     accept = CONTENT_JSON;
   }
 
-  /* Get our list of faidx objects */
-  Fai_Obj = svr->FaiList;
-  if(Fai_Obj == NULL) {
+  /* Ensure we have at least one checksum */
+  if(svr->checksums == NULL) {
     ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
-		  "Error (Fai_Obj) is null, it shouldn't be!");
+		  "Error (checksums) is null, it shouldn't be!");
     return HTTP_INTERNAL_SERVER_ERROR;
   }
 
@@ -198,68 +212,35 @@ static int Faidx_handler(request_rec* r) {
     uri_ptr = ap_getword(r->pool, &uri, '/');
 
     /* See if we've been asked for information on the sets */
-    if(!strcmp(uri_ptr, sets_verb)) {
-      return Faidx_sets_handler(r, Fai_Obj);
-    } else if( !strcmp(uri_ptr, "region") ) {
-      t = REGION_FETCH;
-      break;
-    } else if( !strcmp(uri_ptr, "md5") ) {
-      t = CHECKSUM_MD5;
-      break;
-    } else if( !strcmp(uri_ptr, "sha1") ) {
-      t = CHECKSUM_SHA1;
+    if( !strcmp(uri_ptr, "metadata") ) {
+      t = METADATA_VERB;
+    } else if( svr->labels_endpoints && apr_hash_get(svr->labels, uri_ptr, APR_HASH_KEY_STRING) ) {
+      t = CHECKSUM_VERB;
+      checksum_type = uri_ptr;
+    } else if( apr_hash_get(svr->checksums, uri_ptr, APR_HASH_KEY_STRING) ) {
+      checksum = uri_ptr;
       break;
     }
   }
 
-  /* If we've made it this far we must want sequence,
-     if r isn't pointing to a fetch type we know something
-     is wrong and we need to bail. */
-  if(t == UNKNOWN_VERB) {
+  /* We have to have found a sequence checksum, if
+     not the user gave us one we don't know about.
+
+     TODO: add && method == GET, whatever POST method
+     we end up using will likely have the checksums in there.
+      */
+  if(checksum == NULL) {
     ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
-		  "No valid request given");
+		  "No valid checksum given");
+    ap_rprintf(r, "Checksum not found");
     return HTTP_NOT_FOUND;
   }
 
-  /* We know we should be looking for a set name, if we
-     can't fine one, that's an error */
-  set = ap_getword(r->pool, &uri, '/');
-  if(set == NULL) {
-    ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
-		  "No set name given");
-    return HTTP_BAD_REQUEST;
-  }
+  /* Get the checksum we're going to be working on */
+  checksum_holder = apr_hash_get(svr->labels, uri_ptr, APR_HASH_KEY_STRING);
 
     ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
 		  "verb found: %s", uri);
-
-  /* Next we need to find what verb has been used for
-     sequence fetching, if it's a checksum we need to
-     find the corrected set name and associated
-     sequence name */
-
-  if(t == CHECKSUM_MD5) {
-    checksum_obj = mod_Faidx_fetch_checksum(r->server, NULL, set, CHECKSUM_MD5, 0);
-
-    if(checksum_obj == NULL) {
-      ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
-		    "Error, checksum type md5 for checksum %s not found!", set);
-      ap_rprintf(r, "Checksum %s not found", set);
-
-      return HTTP_NOT_FOUND;
-    }
-
-  } else if(t == CHECKSUM_SHA1) {
-    checksum_obj = mod_Faidx_fetch_checksum(r->server, NULL, set, CHECKSUM_SHA1, 0);
-
-    if(checksum_obj == NULL) {
-      ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
-		    "Error, checksum type sha1 for checksum %s not found!", set);
-      ap_rprintf(r, "Checksum %s not found", set);
-
-      return HTTP_NOT_FOUND;
-    }
-  }
 
   /* Display the form data */
   if(r->method_number == M_GET) {
@@ -742,6 +723,14 @@ static int mod_Faidx_hook_post_config(apr_pool_t *pconf, apr_pool_t *plog,
     return DECLINED;
   }
 
+  /* If the user hasn't set a URI fragment for us, this is a failure */
+  if(svr->endpoint_base == NULL) {
+    ap_log_error(APLOG_MARK, APLOG_ERR, 0, s,
+		 "Endpoint base URI isn't set");
+    return DECLINED;
+
+  }
+
 #ifdef DEBUG
   ap_log_error(APLOG_MARK, APLOG_ERR, 0, s,
 	       "Beginning to initialize Faidx, pid %d", (int)getpid());
@@ -780,57 +769,12 @@ static int mod_Faidx_hook_post_config(apr_pool_t *pconf, apr_pool_t *plog,
   }
 #endif
 
-  Fai_Obj = svr->FaiList;
-  prev_Fai_Obj = &(svr->FaiList);
-
   /* Register the faidx objects for cleanup when the module exits,
      needed for graceful reloads to not leak memory */
   apr_pool_cleanup_register(pconf, svr, &Faidx_cleanup_fais, apr_pool_cleanup_null);
 
-  /* Go through and initialize the Faidx objects in the linked list */
-  while(Fai_Obj->nextFai != NULL) {
-#ifdef DEBUG
-      ap_log_error(APLOG_MARK, APLOG_ERR, 0, s,
-	"Initializing %s", Fai_Obj->fai_set_handler);
-#endif
-
-      if(Fai_Obj->pFai != NULL) {
-      ap_log_error(APLOG_MARK, APLOG_ERR, 0, s,
-	"Seen set before, skipping %s", Fai_Obj->fai_set_handler);
-      continue;
-    }
-
-    Fai_Obj->pFai = fai_load(Fai_Obj->fai_path);
-    if(Fai_Obj->pFai == NULL) {
-      ap_log_error(APLOG_MARK, APLOG_ERR, 0, s,
-	"Error creating Faidx %s, removing Fai", Fai_Obj->fai_set_handler);
-      mod_Faidx_remove_fai(prev_Fai_Obj, Fai_Obj);
-    }
-
-    if(Fai_Obj->pFai == NULL) {
-      ap_log_error(APLOG_MARK, APLOG_ERR, 0, s,
-	"Error pFai component of %s is NULL!", Fai_Obj->fai_set_handler);
-    }
-
-#ifdef DEBUG
-    ap_log_error(APLOG_MARK, APLOG_ERR, 0, s,
-		 "Finished initializing Faidx");
-#endif
-
-
-    prev_Fai_Obj = (Faidx_Obj_holder**)&Fai_Obj->nextFai;
-    Fai_Obj = (Faidx_Obj_holder*)Fai_Obj->nextFai;
-  }
-
-  /* Next we need to link up all the checksum objects to the correct
-     fai object. And fail if the named fai doesn't exist. */
-  if(Faidx_init_checksums(s, svr->MD5List) == DECLINED) {
-    return DECLINED;
-  }
-
-  if(Faidx_init_checksums(s, svr->SHA1List) == DECLINED) {
-    return DECLINED;
-  }
+  /* Resize the cache */
+  files_mgr_resize_cache(svr->files, svr->cachesize);
 
   return 0;
 }

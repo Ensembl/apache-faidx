@@ -33,40 +33,15 @@
 
 #define OFFSET(remaining) (CHUNK_SIZE - remaining - 1)
 
-
-/* RETIRED - Representation of a Faidx object */
-typedef struct {
-  faidx_t* pFai;
-  /* Name of the fai set, ie homo_sapiens_grch37 */
-  char* fai_set_handler;
-  /* Path to the .faa or .gz, including filename */
-  char* fai_path;
-  void* nextFai;
-} Faidx_Obj_holder;
-
-/* RETIRED */
-typedef struct {
-  /* The Fai object this checksum refers to */
-  Faidx_Obj_holder* tFai;
-  /* Checksum user could give us */
-  char* checksum;
-  /* The location in the region, ie. X in GRCh38 */
-  char* set;
-  char* location_name;
-  void* nextChecksum;
-} Faidx_Checksum_obj;
-
 /* server config structure */
 typedef struct {
+  char* endpoint_base;      /* Base url for our endpoints */
   apr_hash_t* checksums;    /* Checksums allowed to be queried, from seqfile record blocks */
   files_mgr* files;         /* Files manager object pointer */
   apr_hash_t* labels;       /* Labels for sequence aliases seen, eg md5, sha1 */
   int labels_endpoints;     /* Boolean flag on if labels based endpoints are
 			       enabled. eg /sequence/md5/<hash>/ */
   int cachesize;            /* The cachesize for number of file handles to keep open */
-  //  Faidx_Obj_holder* FaiList;
-  //  Faidx_Checksum_obj* MD5List;
-  //  Faidx_Checksum_obj* SHA1List;
 } mod_Faidx_svr_cfg;
 
 static int Faidx_handler(request_rec* r);

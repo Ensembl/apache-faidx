@@ -58,4 +58,4 @@ fetcher_test: $(DRIVER_C)
 
 clean:
 	rm -rf *.o *.so *.lo *.slo *.la .libs
-	cd test && rm -rf *.o
+	cd test && $(MAKE) clean

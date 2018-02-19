@@ -22,6 +22,9 @@
 
 Configuration callback that should be placed in the main module initialization:
 
+AP_INIT_TAKE1(SEQ_ENDPOINT_DIRECTIVE, ap_set_string_slot,
+ (void *)APR_OFFSETOF(mod_Faidx_svr_cfg, endpoint_base),
+ RSRC_CONF, "Base URI for module endpoints"),
 AP_INIT_FLAG(SEQFILE_CACHESIZE_DIRECTIVE, ap_set_int_slot,
  (void *)APR_OFFSETOF(mod_Faidx_svr_cfg, cachesize),
  RSRC_CONF, "Set the cache size for seqfiles"),
