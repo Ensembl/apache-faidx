@@ -21,7 +21,9 @@
 #ifndef __MOD_FAIDX_INIT_MODULE_H__
 #define __MOD_FAIDX_INIT_MODULE_H__
 
-static const char *seqfile_section(cmd_params * cmd, void * _cfg, const chat * arg);
-checksum_obj* parse_seq_token(cmd_params * cmd, char** seqname, char** seq_checksum,  char* args);
+#include <http_config.h>
+
+static const char *seqfile_section(cmd_parms * cmd, void * _cfg, const char * arg);
+checksum_obj* parse_seq_token(cmd_parms * cmd, char** seqname, char** seq_checksum,  char* args);
 
 #endif

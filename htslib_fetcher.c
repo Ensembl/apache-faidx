@@ -687,12 +687,14 @@ int tark_iterator_remaining(seq_iterator_t* siterator, int translated) {
    [3] locations, const char* string with the location(s), format 1-100[,200-300,500-1000]
        commas are allowed in the location string. If NULL, we want the entire sequence,
        create an iterator of length 1 - [length of sequence]
+   [4] ensembl_coords, integer, if true coordinates will be treated at Ensembl 1-base (1-100).
+       if false they will be treated as GA4GH style 0-based (0-99)
 
    Return
    seq_iterator_t* or NULL, pointer to a seq_iterator object or NULL if failure
 */
 
-seq_iterator_t* tark_fetch_iterator(faidx_t* fai, const char *seq_name, const char *locs) {
+seq_iterator_t* tark_fetch_iterator(faidx_t* fai, const char *seq_name, const char *locs, int ensembl_coords) {
   int c, i, l, k, location_end, beg, end, nseqs;
   seq_iterator_t* siterator;
   char* s;
@@ -748,12 +750,12 @@ seq_iterator_t* tark_fetch_iterator(faidx_t* fai, const char *seq_name, const ch
   for(k--; k>=0; k--) {
     if(s[k] == '-') {
       end = atoi(s + k + 1);
-      if (end > 0) --end;
+      if (end > 0 && ensembl_coords) --end;
       s[k] = 0;
     } else if(s[k] == ',' || k == 0) {
       if( k == 0 ) k--; // Correct k for the last iteration so the ptr addition works
       beg = atoi(s + k + 1);
-      if (beg > 0) --beg;
+      if (beg > 0 && ensembl_coords) --beg;
       s[k] = 0;
 
       // Start must be less than end and

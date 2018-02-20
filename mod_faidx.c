@@ -100,14 +100,13 @@ module AP_MODULE_DECLARE_DATA faidx_module = {
 static int Faidx_handler(request_rec* r) {
   apr_hash_t *formdata = NULL;
   int rv = OK;
-  Faidx_Obj_holder* Fai_Obj = NULL;
   mod_Faidx_svr_cfg* svr = NULL;
   faidx_t* pFai = NULL;
   char* uri;
   char* uri_ptr;
   int t = UNKNOWN_VERB;
   const char* checksum_type = NULL;
-  const char* cheksum = NULL;
+  const char* checksum = NULL;
   checksum_obj* checksum_holder;
 
   const char* ctype_str;
@@ -115,8 +114,6 @@ static int Faidx_handler(request_rec* r) {
   int accept;
   char* sets_verb = "sets";
   char* locations_verb = "locations/";
-  Faidx_Checksum_obj* checksum_obj = NULL;
-  Faidx_Obj_holder* tFai_Obj;
   char *key;
   char *set;
   const char *val;
@@ -158,17 +155,6 @@ static int Faidx_handler(request_rec* r) {
 		    "We're handling a request");
 #endif
 
-  /* We only accept in POST bodies urlencoded forms or json,
-     if you don't say it's a form, we're assuming it's json */
-  ctype_str = apr_table_get(r->headers_in, "Content-Type");
-  if(ctype_str && (strcasestr(ctype_str, 
-			  "application/x-www-form-urlencoded")
-	       != NULL)) {
-    s = CONTENT_WWWFORM;
-  } else {
-    s = CONTENT_JSON;
-  }
-
   /* We only speak fasta, plain text or json,
      unless you ask for fasta or text,
      you're getting json */
@@ -192,10 +178,6 @@ static int Faidx_handler(request_rec* r) {
     return HTTP_INTERNAL_SERVER_ERROR;
   }
 
-  /* Dispatch the request, is it a lookup, a request for all the
-     sets or all the locations in a set. This could get a little messy.
-     Eventually this could be broken out in to sub-calls. */
-
   /* Make a copy of the uri for hunting through */
   uri = apr_pstrcat(r->pool, r->uri, NULL);
 
@@ -205,59 +187,120 @@ static int Faidx_handler(request_rec* r) {
     uri[strlen(uri) - 1] = '\0';
   }
 
-  while(uri[0]) {
-    /* Find the first verb in the uri.
-       uri gets updated to the location after the separator.
-    */
-    uri_ptr = ap_getword(r->pool, &uri, '/');
+  /* Create an array to hold the location iterators */
+  location_iterators = apr_array_make(r->pool, 1, sizeof(seq_iterator_t*));
 
-    /* See if we've been asked for information on the sets */
-    if( !strcmp(uri_ptr, "metadata") ) {
-      t = METADATA_VERB;
-    } else if( svr->labels_endpoints && apr_hash_get(svr->labels, uri_ptr, APR_HASH_KEY_STRING) ) {
-      t = CHECKSUM_VERB;
-      checksum_type = uri_ptr;
-    } else if( apr_hash_get(svr->checksums, uri_ptr, APR_HASH_KEY_STRING) ) {
-      checksum = uri_ptr;
-      break;
-    }
-  }
+  /* Here is where our logic branches.
 
-  /* We have to have found a sequence checksum, if
-     not the user gave us one we don't know about.
+     If we have a GET we check the URI and try
+     to retrieve any extra parameters from the query string.
+     Finally make our lone sequence iterator object with
+     everything we've found.
 
-     TODO: add && method == GET, whatever POST method
-     we end up using will likely have the checksums in there.
-      */
-  if(checksum == NULL) {
-    ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
-		  "No valid checksum given");
-    ap_rprintf(r, "Checksum not found");
-    return HTTP_NOT_FOUND;
-  }
-
-  /* Get the checksum we're going to be working on */
-  checksum_holder = apr_hash_get(svr->labels, uri_ptr, APR_HASH_KEY_STRING);
-
-    ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
-		  "verb found: %s", uri);
-
-  /* Display the form data */
+     If we have a POST, check we're given JSON, decode that JSON,
+     and for each sequence hash section in it, make a sequence
+     iterator.
+  */
   if(r->method_number == M_GET) {
+
+    while(uri[0]) {
+      /* Find the first verb in the uri.
+	 uri gets updated to the location after the separator.
+      */
+      uri_ptr = ap_getword(r->pool, &uri, '/');
+
+      /* See if we've been asked for information on the sets */
+      if( !strcmp(uri_ptr, "metadata") ) {
+	/* Do and return metadata here */
+	t = METADATA_VERB;
+      } else if( svr->labels_endpoints && apr_hash_get(svr->labels, uri_ptr, APR_HASH_KEY_STRING) ) {
+	t = CHECKSUM_VERB;
+	checksum_type = uri_ptr;
+      } else if( apr_hash_get(svr->checksums, uri_ptr, APR_HASH_KEY_STRING) ) {
+	checksum = uri_ptr;
+	break;
+      }
+    }
+
+    if(checksum == NULL) {
+      ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
+		    "No checksum found in URI");
+      return HTTP_BAD_REQUEST;
+    }
+
+    /* Get the checksum we're going to be working on */
+    checksum_holder = apr_hash_get(svr->labels, checksum, APR_HASH_KEY_STRING);
+
+    if(checksum_holder == NULL) {
+      ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
+		    "Checksum %s not found", checksum);
+      return HTTP_NOT_FOUND;
+    }
+
+    /* Decode the query string */
     formdata = parse_form_from_GET(r);
-  }
-  else if(r->method_number == M_POST) {
-    if(s == CONTENT_WWWFORM) {
-      rv = parse_form_from_POST(r, &formdata, 0);
+
+    /* Put the checksum information in the formdata, it's just
+       a a hash, so we can add to it. */
+    apr_hash_set(formdata, apr_pstrdup(r->pool, "checksum"), APR_HASH_KEY_STRING, checksum);
+    if(checksum_type != NULL) {
+      apr_hash_set(formdata, apr_pstrdup(r->pool, "type"), APR_HASH_KEY_STRING, checksum_type);
     }
-    else {
-      rv = parse_form_from_POST(r, &formdata, 1);
+
+    /* And let's send the request off to transform in to a seq iterator */
+    siterator = NULL;
+    rv = mod_Faidx_create_iterator(r, svr, formdata, &siterator);
+
+    /* If an error condition was returned, bail and send it up the stack */
+    if(rv != OK) {
+      return rv;
     }
+
+    /* If we've reached this point we must have an iterator and be ready to
+       send back sequence. Make a copy in to the request pool and free the
+       malloc'ed one from the external library. */
+    *(seq_iterator_t**)apr_array_push(location_iterators) = iterator_pool_copy(r, siterator);
+    tark_free_iterator(siterator);
+
+
+  } else if(r->method_number == M_POST) {
+
+    /* We only accept in POST bodies in json
+       if you don't say it's json, error.
+       We used to allow wwwform encoding but the new
+       post body format wouldn't work with that. */
+    ctype_str = apr_table_get(r->headers_in, "Content-Type");
+    if( (ctype_str == NULL) || 
+	(strcasestr(ctype_str, "application/json")
+	 == NULL) ) {
+      return HTTP_BAD_REQUEST;
+    }
+
+    /* Placeholder until we fix POST handling, this currently doesn't work */
+    return HTTP_BAD_REQUEST;
+
+    /* Decode the json body */
+    rv = parse_form_from_POST(r, &formdata, 1);
+
+    /* If we had trouble parsing the POST data, that's an
+       internal server error */
+    if(rv != OK) {
+      ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
+		    "Error, reading form data");
+      return HTTP_INTERNAL_SERVER_ERROR;
+
+    } else if(formdata == NULL) {
+      ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
+		    "Error, no form data found, how did this happen?");
+      return HTTP_INTERNAL_SERVER_ERROR;
+    }
+
   } else {
     ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
-		  "Error, no data given to module, where's your location?");
+		  "Error, how did we get here? Not GET or POST?");
     return HTTP_BAD_REQUEST;
   }
+
 
   if(accept == CONTENT_FASTA) {
     ap_set_content_type(r, "text/x-fasta");
@@ -267,142 +310,6 @@ static int Faidx_handler(request_rec* r) {
     ap_set_content_type(r, "application/json");
   }
 
-  /* If we had trouble parsing the POST data, that's an
-     internal server error */
-  if(rv != OK) {
-    ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
-		  "Error, reading form data");
-    return HTTP_INTERNAL_SERVER_ERROR;
-  }
-  else if(formdata == NULL) {
-    ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
-		  "Error, no form data found, how did this happen?");
-		  return HTTP_INTERNAL_SERVER_ERROR;
-  }
-
-  /* A null checksom_obj means we're not using a checksum, this is just
-     a normal Fai fetch/region. Otherwise, we now have the Fai and
-     sequence name via the checksum object. */
-  if(checksum_obj == NULL) {
-    tFai_Obj = mod_Faidx_fetch_fai(r->server, NULL, set, 0);
-
-    if(tFai_Obj == NULL) {
-      ap_rprintf(r, "Set %s not found", set);
-      ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
-		    "Error, fai for set %s not found!", set);
-      return HTTP_NOT_FOUND;
-    }
-  } else {
-    tFai_Obj = checksum_obj->tFai;
-    sequence_name = checksum_obj->location_name;
-    set = checksum_obj->set;
-  }
-
-  Loc_count = 0;
-  translate = 0;
-
-  /* See if we've been asked to translate the sequence */
-  val = apr_hash_get(formdata, "translate", APR_HASH_KEY_STRING);
-  if(val != NULL) {
-    translate = 1;
-  }
-
-  /* Create an array to hold the location iterators */
-  location_iterators = apr_array_make(r->pool, 1, sizeof(seq_iterator_t));
-
-  /* Try and get the one or more locations from the
-     request data */
-  val = apr_hash_get(formdata, "location", APR_HASH_KEY_STRING);
-  if(val == NULL) {
-    if(sequence_name != NULL) {
-      /* We don't have any locations but we have a sequence name,
-         someone has asked for an entire sequence!
-	 Fetch the iterator for the whole sequence, copy it
-	 to our iterators array, then deallocate it.
-       */
-
-      siterator = tark_fetch_iterator(tFai_Obj->pFai, sequence_name, NULL);
-
-      /* We didn't get an iterator, this is likely a user error */
-      if(siterator == NULL) {
-	ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
-		      "Error, problem fetching the iterator, %s", sequence_name);
-	return HTTP_BAD_REQUEST;
-      }
-
-      if(accept == CONTENT_FASTA || accept == CONTENT_TEXT) {
-	tark_iterator_set_line_length(siterator, MAX_FASTA_LINE_LENGTH);
-      }
-
-      /* Make a deep copy of the iterator in to the APR pool */
-      aiterator = (seq_iterator_t*)apr_array_push(location_iterators);
-      memcpy( (void*)aiterator, (void *)siterator, sizeof(seq_iterator_t) );
-      aiterator->locations = apr_pmemdup(r->pool,
-					 (void*)siterator->locations,
-					 sizeof(seq_location_t)*tark_iterator_locations_count(siterator));
-      aiterator->seq_name = apr_pstrdup(r->pool,
-					(void*)siterator->seq_name);
-      aiterator->location_str = apr_psprintf(r->pool, "1-%d", aiterator->seq_length);
-      tark_free_iterator(siterator);
-    } else {
-      /* We have a set name but no locations and no sequence name from a checksum,
-	 the user must be asking for all the sequences in that set.
-       */
-      return Faidx_locations_handler(r, set);
-
-    }
-  } else {
-    /* We do have locations, so let's go through them and make iterators */
-
-    for(key = apr_strtok(val, delim, &last); key != NULL;
-	key = apr_strtok(NULL, delim, &last)) {
-
-#ifdef DEBUG
-      ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
-		    "Found location %s", key);
-#endif
-
-      /* It's a region type, so we need to extract the sequence
-	 name from the location */
-      if(checksum_obj == NULL) {
-	sequence_name = Faidx_fetch_sequence_name(r, key, &location_offset);
-	loc_str = key + location_offset;
-      } else {
-	loc_str = key;
-      }
-
-#ifdef DEBUG
-      ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
-		    "Sequence %s, location %s", sequence_name, loc_str);
-#endif
-
-      siterator = tark_fetch_iterator(tFai_Obj->pFai, sequence_name, loc_str);
-
-      /* We didn't get an iterator, this is likely a user error */
-      if(siterator == NULL) {
-	ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
-		      "Error, problem fetching the iterator, %s %s", sequence_name, loc_str);
-	return HTTP_BAD_REQUEST;
-      }
-
-      if(accept == CONTENT_FASTA || accept == CONTENT_TEXT) {
-	tark_iterator_set_line_length(siterator, MAX_FASTA_LINE_LENGTH);
-      }
-
-      /* Make a deep copy of the iterator in to the APR pool */
-      aiterator = (seq_iterator_t*)apr_array_push(location_iterators);
-      memcpy( (void*)aiterator, (void *)siterator, sizeof(seq_iterator_t) );
-      aiterator->locations = apr_pmemdup(r->pool,
-					 (void*)siterator->locations,
-					 sizeof(seq_location_t)*tark_iterator_locations_count(siterator));
-      aiterator->seq_name = apr_pstrdup(r->pool,
-					(void*)siterator->seq_name);
-      aiterator->location_str = loc_str;
-
-      tark_free_iterator(siterator);
-
-    } /* end for */
-  } /* end else */
 
   /* Now we're going to create our send buffer and set up our pointers */
   send_buf = (char*)apr_palloc(r->pool, sizeof(char)*CHUNK_SIZE);
@@ -435,7 +342,7 @@ static int Faidx_handler(request_rec* r) {
   /* Loop through the locations, and start sending. We're behaving like
      a type writer, we'll keep filling the send buffer, then flush when
      full. This allows us to chunk if needed or set the content. */
-  while(siterator = (seq_iterator_t*)apr_array_pop(location_iterators)) {
+  while(siterator = *(seq_iterator_t**)apr_array_pop(location_iterators)) {
     location_offset = Faidx_create_header(h_buf, accept, set, siterator->seq_name, siterator->location_str, Loc_count);
     if(location_offset > MAX_HEADER) {
       location_offset = MAX_HEADER;
@@ -537,73 +444,6 @@ int Faidx_append_or_send(request_rec* r, char* send_ptr, int send_length, int* b
   return flushed;
 }
 
-/* Handler for returning all sets available  */
-    
-static int Faidx_sets_handler(request_rec* r, Faidx_Obj_holder* Fais) {
-  int Fai_count = 0;
-
-  /* Something went wrong, we didn't get any Fais, but
-     don't punish the user for our mistake. */
-  if(Fais == NULL) {
-    ap_rputs( "[]\n", r );
-    return OK;
-  }
-
-  /* Start JSON header */
-  ap_rputs( "[", r );
-
-  while(Fais->nextFai != NULL) {
-    if(Fai_count > 0) {
-      ap_rputs( ",", r );
-    }
-
-    ap_rprintf( r, "\"%s\"", Fais->fai_set_handler );
-
-    Fais = Fais->nextFai;
-    Fai_count++;
-  }
-
-  ap_rputs( "]\n", r );
-
-  return OK;
-}
-
-/* Handler for returning all locations in a particular set  */
-
-static int Faidx_locations_handler(request_rec* r, char* set) {
-  int loc_count = 0;
-  Faidx_Obj_holder* Fai_Obj;
-
-  Fai_Obj = mod_Faidx_fetch_fai(r->server, NULL, set, 0);
-
-  /* If they do something silly like ask for a non-existent
-     set, that's not an error, it's just an empty set to
-     send back*/
-  if(Fai_Obj == NULL || Fai_Obj->pFai == NULL) {
-    ap_rputs( "{}\n", r );
-    return OK;
-  }
-
-  /* Ask faidx for a list of all available keys */
-  loc_count = faidx_nseq(Fai_Obj->pFai);
-  ap_rputs( "{", r );
-
-  for(int i = 0; i < loc_count; i++) {
-    if(i > 0) {
-      ap_rputs( ",", r );
-    }
-
-    ap_rprintf( r, "\"%s\": %d", 
-		faidx_iseq(Fai_Obj->pFai, i), 
-		faidx_seq_len(Fai_Obj->pFai, faidx_iseq(Fai_Obj->pFai, i) ) );
-  }
-
-  ap_rputs( "}\n", r );
-
-  return OK;
-
-}
-
 /* 
    Print a Fasta sequence to the client
    ARGS[1] : Request object
@@ -698,15 +538,141 @@ int Faidx_create_footer(char* buf, int format) {
   return sent;
 }
 
-/* Add error reporting?  "Could not load model" etc */
+/* This is where we'll need some more abstraction when/if we start to
+   handle other backend types besides faidx. It's fairly tightly coupled
+   to htslib's faidx right now.
 
-/* TODO handle cachesize, adjust the files_mgr_resize_cache */
+   Also we don't yet handle the case where we have a checksum "type" and
+   confirm it matches the checksum we've found.
+ */
+
+const int mod_Faidx_create_iterator(request_rec* r, mod_Faidx_svr_cfg* svr, apr_hash_t *formdata, seq_iterator_t** sit) {
+  seq_iterator_t* siterator;
+  const char* checksum;
+  checksum_obj* checksum_holder;
+  seq_file_t* seqfile;
+  char* locs = NULL;
+  const char* str;
+  int ensembl_coords = 0;
+  int start;
+  int end;
+  int strand;
+  int rv;
+
+  checksum = apr_hash_get(formdata, "checksum", APR_HASH_KEY_STRING);
+  checksum_holder = apr_hash_get(svr->checksums, checksum, APR_HASH_KEY_STRING);
+  if(checksum_holder == NULL) {
+      ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
+		    "Checksum %s not found", checksum);
+      return HTTP_NOT_FOUND;
+  }
+
+  seqfile = files_mgr_use_seqfile(svr->files, checksum_holder->file);
+
+  str = apr_hash_get(formdata, "strand", APR_HASH_KEY_STRING);
+  if(str == NULL) {
+    strand = 1;
+  } else {
+    strand = atoi(str);
+    if((strand != 1) || (strand != -1)) return HTTP_BAD_REQUEST;
+  }
+
+  if(apr_hash_get(formdata, "range", APR_HASH_KEY_STRING)) {
+    locs = apr_psprintf(r->pool, "%s:%d", apr_hash_get(formdata, "range", APR_HASH_KEY_STRING), strand);
+  }
+
+  if(apr_hash_get(formdata, "start", APR_HASH_KEY_STRING) || apr_hash_get(formdata, "end", APR_HASH_KEY_STRING)) {
+    apr_table_setn(r->headers_out, "Accept-Ranges", "none"); /* If we have query parameters, deny Range requests */
+    if(locs != NULL) {
+      /* If locs isn't NULL, it means we have a Range from above, that's an error */
+      return HTTP_BAD_REQUEST;
+    }
+
+    str = apr_hash_get(formdata, "start", APR_HASH_KEY_STRING);
+    if(str == NULL) {
+      start = 1;
+    } else {
+      start = atoi(str);
+    }
+
+    str = apr_hash_get(formdata, "end", APR_HASH_KEY_STRING);
+    if(str == NULL) {
+      end = faidx_seq_len((faidx_t*)seqfile->file_ptr, checksum_holder->sequence->name) - 1;
+    } else {
+      end = atoi(str);
+    }
+
+    ensembl_coords = 1;
+    locs = apr_psprintf(r->pool, "%d-%d:%d", start, end, strand);
+  }
+  
+  siterator = tark_fetch_iterator((faidx_t*)seqfile->file_ptr, 
+				  checksum_holder->sequence->name,
+				  locs,
+				  ensembl_coords);
+
+  if(siterator == NULL) {
+     ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
+		    "We didn't get can iterator back, that's very bad");
+      return HTTP_INTERNAL_SERVER_ERROR;
+  }
+
+  if(locs == NULL) {
+    siterator->location_str = apr_psprintf(r->pool,
+					   "%d-%d:%d",
+					   1,
+					   siterator->seq_length,
+					   strand);
+
+    /* Special case, we want a whole sequence but perhaps we also want the opposite strand */
+    siterator->strand = strand;
+  } else {
+    siterator->location_str = locs;
+  }
+
+  /* Just reusing variables to save some stack space */
+  str = apr_hash_get(formdata, "translate", APR_HASH_KEY_STRING);
+  if(str == NULL) {
+    siterator->translate = 0;
+  } else {
+    strand = atoi(str);
+    if((strand != 1) || (strand != 0)) {
+      tark_free_iterator(siterator);
+      return HTTP_BAD_REQUEST;
+    }
+    siterator->translate = strand;
+  }
+
+  /* Copy over the address of the iterator */
+  *sit = siterator;
+  
+  return OK;
+}
+
+/* Make a copy of a seq_iterator in to the request memory pool */
+
+seq_iterator_t* iterator_pool_copy(request_rec* r, seq_iterator_t* siterator) {
+  seq_iterator_t* aiterator;
+
+  aiterator = apr_pcalloc(r->pool, sizeof(seq_iterator_t));
+
+  memcpy( (void*)aiterator, (void *)siterator, sizeof(seq_iterator_t) );
+
+  aiterator->locations = apr_pmemdup(r->pool,
+				     (void*)siterator->locations,
+				     sizeof(seq_location_t)*tark_iterator_locations_count(siterator));
+  aiterator->seq_name = apr_pstrdup(r->pool,
+				    (void*)siterator->seq_name);
+  aiterator->location_str = apr_pstrdup(r->pool, siterator->location_str);
+
+  return aiterator;
+}
+
+/* Add error reporting?  "Could not load model" etc */
 
 static int mod_Faidx_hook_post_config(apr_pool_t *pconf, apr_pool_t *plog,
 				      apr_pool_t *ptemp, server_rec *s) {
 
-  Faidx_Obj_holder* Fai_Obj;
-  Faidx_Obj_holder** prev_Fai_Obj;
   mod_Faidx_svr_cfg* svr
     = ap_get_module_config(s->module_config, &faidx_module);
   void *data = NULL;
@@ -779,300 +745,16 @@ static int mod_Faidx_hook_post_config(apr_pool_t *pconf, apr_pool_t *plog,
   return 0;
 }
 
-int Faidx_init_checksums(server_rec* svr, Faidx_Checksum_obj* checksum_list) {
-  Faidx_Obj_holder* tFai;
-
-  while(checksum_list->nextChecksum != NULL) {
-    tFai = mod_Faidx_fetch_fai(svr, NULL, checksum_list->set, 0);
-
-    /* If we can't find the Fai for the checksum, this is a big problem, fail. */
-    if(tFai == NULL) {
-      ap_log_error(APLOG_MARK, APLOG_EMERG, 0, svr,
-		   "Error, set %s doesn't exist for checksum %s!", checksum_list->set, checksum_list->checksum);
-      return DECLINED;
-    }
-
-    /* If the Fai doesn't have this location/sequence, that's a fail too. */
-    if(!faidx_has_seq(tFai->pFai, checksum_list->location_name)) {
-      ap_log_error(APLOG_MARK, APLOG_EMERG, 0, svr,
-		   "Error, location %s in set %s doesn't exist for checksum %s!", checksum_list->location_name, checksum_list->set, checksum_list->checksum);
-      return DECLINED;
-    }
-
-    /* Everything seems to check out, remember the Fai */
-    checksum_list->tFai = tFai;
-
-    checksum_list = checksum_list->nextChecksum;
-  }
-
-  return 0;
-}
-
 /* Clean-up the Faidx objects when the server is restarted */
 
 static apr_status_t Faidx_cleanup_fais(void* server_cfg) {
-  Faidx_Obj_holder* FaiList = ((mod_Faidx_svr_cfg*)server_cfg)->FaiList;
 
   ap_log_error(APLOG_MARK, APLOG_ERR, 0, NULL,
-	       "Cleaning up Fais");
+	       "Cleaning up files manager");
 
-  while(FaiList->nextFai != NULL) {
-    if(FaiList->pFai != NULL) {
-
-#ifdef DEBUG
-  ap_log_error(APLOG_MARK, APLOG_ERR, 0, NULL,
-	       "Destroying %s", FaiList->fai_set_handler);
-#endif
-
-      fai_destroy(FaiList->pFai);
-      FaiList->pFai = NULL;
-    }
-
-    FaiList = (Faidx_Obj_holder*)FaiList->nextFai;
-  }
+  destroy_files_mgr(((mod_Faidx_svr_cfg*)server_cfg)->files);
 
   return APR_SUCCESS;
-}
-
-/* Remove a Faidx from the server linked list */
-
-static void mod_Faidx_remove_fai(Faidx_Obj_holder** parent_Fai_Obj, Faidx_Obj_holder* Fai_Obj) {
-  Faidx_Obj_holder* temp_Fai_Obj;
-
-  if((Fai_Obj == NULL) || (Fai_Obj->nextFai == NULL)) {
-    return;
-  }
-
-  temp_Fai_Obj = Fai_Obj;
-
-  *parent_Fai_Obj = Fai_Obj->nextFai;
-
-  /* TODO Figure out how to safely deallocate temp_Fai_Obj here */
-}
-
-/* Fetch a Faidx object with a given set name */
-
-static Faidx_Obj_holder* mod_Faidx_fetch_fai(server_rec* s, apr_pool_t* pool, const char* hFai, int make) {
-  Faidx_Obj_holder* Fai_Obj;
-  mod_Faidx_svr_cfg* svr
-    = ap_get_module_config(s->module_config, &faidx_module);
-
-    Fai_Obj = svr->FaiList;
-
-  /* Loop through and find the faidx object */
-  while(Fai_Obj->nextFai != NULL) {
-#ifdef DEBUG
-    ap_log_error(APLOG_MARK, APLOG_ERR, 0, NULL,
-		 "Examining Faidx %s", Fai_Obj->fai_set_handler);
-#endif
-    if(!apr_strnatcasecmp(Fai_Obj->fai_set_handler, hFai))
-      break;
-
-    Fai_Obj = (Faidx_Obj_holder*)Fai_Obj->nextFai;
-  }
-
-  /* If we're on the last object, which is always a telomere-ish
-     empty cap of a uninitialized Fai_Obj */
-  if(Fai_Obj->nextFai == NULL) {
-    /* Have we been asked to make the object if we didn't find it? */
-    if(make) {
-#ifdef DEBUG
-    ap_log_error(APLOG_MARK, APLOG_ERR, 0, NULL,
-		 "Making faidx_obj_holder %s", hFai);
-#endif
-      /* Create a new end-of-linked list Faidx object */
-      Fai_Obj->nextFai = apr_pcalloc(pool, sizeof(Faidx_Obj_holder));
-      Fai_Obj->fai_set_handler = apr_pstrdup(pool, hFai);
-      Fai_Obj->pFai = NULL;
-      /* Set the next pointer in the new last object to NULL */
-      ((Faidx_Obj_holder*)Fai_Obj->nextFai)->nextFai = NULL;
-      ((Faidx_Obj_holder*)Fai_Obj->nextFai)->pFai = NULL;
-      ((Faidx_Obj_holder*)Fai_Obj->nextFai)->fai_path = NULL;
-      ((Faidx_Obj_holder*)Fai_Obj->nextFai)->fai_set_handler = NULL;
-    } else {
-      /* We weren't asked to make a new object, and didn't find one, NULL */
-      return NULL;
-    }
-  }
-
-#ifdef DEBUG
-    ap_log_error(APLOG_MARK, APLOG_ERR, 0, NULL,
-		 "Returning Faidx %s", Fai_Obj->fai_set_handler);
-#endif
-  /* We should have a faidx object at this point */
-  return Fai_Obj;
-
-}
-
-/* This could be generalized further so it can also handle searching the Fai linked list */
-
-static Faidx_Checksum_obj* mod_Faidx_fetch_checksum(server_rec* s, apr_pool_t* pool, const char* checksum, int checksum_type, int make) {
-  Faidx_Checksum_obj* Checksum_Obj;
-  mod_Faidx_svr_cfg* svr
-    = ap_get_module_config(s->module_config, &faidx_module);
-
-  if(checksum_type == CHECKSUM_MD5) {
-    Checksum_Obj = svr->MD5List;
-  } else if(checksum_type == CHECKSUM_SHA1) {
-    Checksum_Obj = svr->SHA1List;
-  } else {
-    return NULL;
-  }
-
-  while(Checksum_Obj->nextChecksum != NULL) {
-#ifdef DEBUG
-    ap_log_error(APLOG_MARK, APLOG_ERR, 0, NULL,
-		 "Examining Checksum %s", Checksum_Obj->checksum);
-#endif
-    if(!strcmp(Checksum_Obj->checksum, checksum))
-      break;
-
-    Checksum_Obj = (Faidx_Checksum_obj*)Checksum_Obj->nextChecksum;
-  }
-
-  /* If we're on the last object, which is always a telomere-ish
-     empty cap of a uninitialized Checksum_Obj */
-  if(Checksum_Obj->nextChecksum == NULL) {
-    /* Have we been asked to make the object if we didn't find it? */
-    if(make) {
-#ifdef DEBUG
-    ap_log_error(APLOG_MARK, APLOG_ERR, 0, NULL,
-		 "Making faidx_checksum_obj %s", checksum);
-#endif
-      /* Create a new end-of-linked list Faidx object */
-      Checksum_Obj->nextChecksum = apr_pcalloc(pool, sizeof(Faidx_Checksum_obj));
-      Checksum_Obj->checksum = apr_pstrdup(pool, checksum);
-      Checksum_Obj->tFai = NULL;
-      /* Set the next pointer in the new last object to NULL */
-      ((Faidx_Checksum_obj*)Checksum_Obj->nextChecksum)->nextChecksum = NULL;
-      ((Faidx_Checksum_obj*)Checksum_Obj->nextChecksum)->tFai = NULL;
-      ((Faidx_Checksum_obj*)Checksum_Obj->nextChecksum)->checksum = NULL;
-      ((Faidx_Checksum_obj*)Checksum_Obj->nextChecksum)->set = NULL;
-      ((Faidx_Checksum_obj*)Checksum_Obj->nextChecksum)->location_name = NULL;
-    } else {
-      /* We weren't asked to make a new object, and didn't find one, NULL */
-      return NULL;
-    }
-  }
-
-#ifdef DEBUG
-    ap_log_error(APLOG_MARK, APLOG_ERR, 0, NULL,
-		 "Returning Checksum obj %s", Checksum_Obj->checksum);
-#endif
-  /* We should have a checksum object at this point */
-  return Checksum_Obj;
-}
-
-/* Remove a Checksum from the server linked list */
-
-static void mod_Faidx_remove_checksum(Faidx_Checksum_obj** parent_Checksum_Obj, Faidx_Checksum_obj* Checksum_Obj) {
-  Faidx_Checksum_obj* temp_Checksum_Obj;
-
-  if((Checksum_Obj == NULL) || (Checksum_Obj->nextChecksum == NULL)) {
-    return;
-  }
-
-  temp_Checksum_Obj = Checksum_Obj;
-
-  *parent_Checksum_Obj = Checksum_Obj->nextChecksum;
-
-  /* TODO Figure out how to safely deallocate temp_Checksum_Obj here */
-}
-
-/* I don't remember why this is here */
-static const char* modFaidx_set_handler(cmd_parms* cmd, void* cfg, const char* HandlerName) {
-  /*  Faidx_Obj_holder* Fai_Obj;
-#ifdef DEBUG
-    ap_log_error(APLOG_MARK, APLOG_ERR, 0, NULL,
-		 "This is being called: %s", HandlerName);
-#endif
-
-  Fai_Obj = mod_Faidx_fetch_fai(cmd->server, cmd->pool, HandlerName, 1);
-  */
-  return NULL;
-}
-
-/* From a configuration directive, create the entry in the Faidx set for
-   this fai set. It's alright to reallocate a set name again since we
-   don't actually make the faidx objects until the post_hook. */
-static const char* modFaidx_init_set(cmd_parms* cmd, void* cfg, const char* SetName, const char* SetFilename) {
-  Faidx_Obj_holder* Fai_Obj;
-
-#ifdef DEBUG
-  ap_log_error(APLOG_MARK, APLOG_ERR, 0, cmd->server,
-		   "FaidxSet directive %s, %s", SetName, SetFilename);
-#endif
-  Fai_Obj = mod_Faidx_fetch_fai(cmd->server, cmd->pool, SetName, 1);
-
-  if(Fai_Obj == NULL) {
-    return "Error, could not allocate Faidx set";
-  }
-
-  /* TODO Check here, if reallocating an existing set, deallocate the fai_path in the
-     existing Fai_Obj */
-
-  Fai_Obj->fai_path = apr_pstrdup(cmd->pool, SetFilename);
-
-  if(Fai_Obj->fai_path == NULL) {
-    ap_log_error(APLOG_MARK, APLOG_EMERG, 0, cmd->server,
-		 "Error, unable to allocate string for fai path!");
-  }
-
-  return NULL;
-}
-
-static const char* modFaidx_set_MD5(cmd_parms* cmd, void* cfg, const char* Checksum, const char* SetName, const char* Location) {
-  Faidx_Checksum_obj* Checksum_Obj;
-
-#ifdef DEBUG
-  ap_log_error(APLOG_MARK, APLOG_ERR, 0, cmd->server,
-	       "FaidxMD5 directive %s, %s, %s", Checksum, SetName, Location);
-#endif
-  Checksum_Obj = mod_Faidx_fetch_checksum(cmd->server, cmd->pool, Checksum, CHECKSUM_MD5, 1);
-
-  if(Checksum_Obj == NULL) {
-    return "Error, could not allocate Faidx checksum object";
-  }
-
-  /* TODO Check here, if reallocating an existing set, deallocate the checksum in the
-     existing Checksum_Obj */
-
-  Checksum_Obj->set = apr_pstrdup(cmd->pool, SetName);
-  Checksum_Obj->location_name = apr_pstrdup(cmd->pool, Location);
-
-  if(Checksum_Obj->location_name == NULL) {
-    ap_log_error(APLOG_MARK, APLOG_EMERG, 0, cmd->server,
-		 "Error, unable to allocate string for location path! (%s)", SetName);
-  }
-
-  return NULL;
-}
-
-static const char* modFaidx_set_SHA1(cmd_parms* cmd, void* cfg, const char* Checksum, const char* SetName, const char* Location) {
-  Faidx_Checksum_obj* Checksum_Obj;
-
-#ifdef DEBUG
-  ap_log_error(APLOG_MARK, APLOG_ERR, 0, cmd->server,
-	       "FaidxSHA1 directive %s, %s, %s", Checksum, SetName, Location);
-#endif
-  Checksum_Obj = mod_Faidx_fetch_checksum(cmd->server, cmd->pool, Checksum, CHECKSUM_SHA1, 1);
-
-  if(Checksum_Obj == NULL) {
-    return "Error, could not allocate Faidx checksum object";
-  }
-
-  /* TODO Check here, if reallocating an existing set, deallocate the checksum in the
-     existing Checksum_Obj */
-
-  Checksum_Obj->set = apr_pstrdup(cmd->pool, SetName);
-  Checksum_Obj->location_name = apr_pstrdup(cmd->pool, Location);
-
-  if(Checksum_Obj->location_name == NULL) {
-    ap_log_error(APLOG_MARK, APLOG_EMERG, 0, cmd->server,
-		 "Error, unable to allocate string for location path! (%s)", SetName);
-  }
-
-  return NULL;
 }
 
 static apr_hash_t *parse_form_from_string(request_rec *r, char *args) {

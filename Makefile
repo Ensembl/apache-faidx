@@ -20,13 +20,13 @@ DEPS = $(wildcard $INCDIR/*.h) $(TARGET_LIB)
 all:
 
 apmodule:
-	apxs2 -c -L$(HTSLIB_DIR) -I$(HTSLIB_DIR) -Wl,-rpath=$(HTSLIB_DIR) -lhts -lz mod_faidx.c htslib_fetcher.c
+	apxs2 -c -L$(HTSLIB_DIR) -I$(HTSLIB_DIR) -I$(INCDIR) -Wl,-rpath=$(HTSLIB_DIR) -lhts -lz mod_faidx.c htslib_fetcher.c files_manager.c init_module.c
 
 apmodule_debug:
-	apxs2 -DDEBUG=1 -c -L$(HTSLIB_DIR) -I$(HTSLIB_DIR) -Wl,-rpath=$(HTSLIB_DIR) -lhts -lz mod_faidx.c htslib_fetcher.c
+	apxs2 -DDEBUG=1 -c -L$(HTSLIB_DIR) -I$(HTSLIB_DIR) -I$(INCDIR) -Wl,-rpath=$(HTSLIB_DIR) -lhts -lz mod_faidx.c htslib_fetcher.c files_manager.c init_module.c
 
 apmodule_coveralls:
-	apxs2 -DDEBUG=1 -c -L$(HTSLIB_DIR) -I$(HTSLIB_DIR) -Wl,-rpath=$(HTSLIB_DIR) "-Wc,-g -O0 --coverage" -lhts -lz -lgcov mod_faidx.c htslib_fetcher.c
+	apxs2 -DDEBUG=1 -c -L$(HTSLIB_DIR) -I$(HTSLIB_DIR) -I$(INCDIR) -Wl,-rpath=$(HTSLIB_DIR) "-Wc,-g -O0 --coverage" -lhts -lz -lgcov mod_faidx.c htslib_fetcher.c files_manager.c init_module.c
 
 install: apmodule
 	apxs2 -i -n faidx .libs/mod_faidx.so

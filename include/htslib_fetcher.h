@@ -37,12 +37,13 @@ typedef struct seq_iterator {
   unsigned int seq_iterated; // Overall how far along are we
   unsigned int line_length; // How long a line to print before wrapping
   int strand;
+  int translate;
   seq_location_t* locations;
   unsigned int segment_ptr; // Which segment are we on
   unsigned int segment_bp_ptr; // Where are we in that segment, relative numbers
 } seq_iterator_t;
 
-seq_iterator_t* tark_fetch_iterator(faidx_t* fai, const char *seq_name, const char *locs);
+seq_iterator_t* tark_fetch_iterator(faidx_t* fai, const char *seq_name, const char *locs, int ensembl_coords);
 int tark_iterator_translated_length(seq_iterator_t* siterator, int* remaining, int* unpadded_remaining);
 char* tark_fetch_seq(faidx_t* fai, const char *str, int *seq_len);
 char* tark_iterator_fetch_translated_seq(seq_iterator_t* siterator, int *seq_len, char* seq_ptr);

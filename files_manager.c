@@ -107,9 +107,9 @@ seq_file_t* files_mgr_lookup_file(files_mgr_t* fm, char* path) {
   unsigned char md5[MD5_DIGEST_LENGTH];
 
   /* Create the digest for the filename */
-  MD5((const unsigned char *)seqfile->path, strlen(seqfile->path), &md5);
+  MD5((const unsigned char *)path, strlen(path), md5);
 
-  return files_mgr_get_seqfile(fm, (const char*)md5);
+  return files_mgr_get_seqfile(fm, (const unsigned char*)md5);
 }
 
 /* Add a new seqfile to the collection.
@@ -125,7 +125,7 @@ const unsigned char* files_mgr_add_seqfile(files_mgr_t* fm, char* path, int type
   mp = fm->mp;
 
   /* Create the digest for the filename */
-  MD5((const unsigned char *)seqfile->path, strlen(seqfile->path), &md5);
+  MD5((const unsigned char *)path, strlen(path), md5);
 
   /* If we've already seen this file before, skip */
   if(apr_hash_get(fm->seqfiles, md5, MD5_DIGEST_LENGTH) != NULL) {
@@ -151,7 +151,7 @@ const unsigned char* files_mgr_add_seqfile(files_mgr_t* fm, char* path, int type
 	       MD5_DIGEST_LENGTH,
 	       (const void*)seqfile);
 
-  return (const unsigned char*)md5;
+  return (const unsigned char*)apr_pmemdup(mp, (void*)md5, MD5_DIGEST_LENGTH);;
 
 }
 

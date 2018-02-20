@@ -22,6 +22,9 @@
 #define __MOD_FAIDX_H__
 
 #include "typedef.h"
+#include "files_manager.h"
+#include "init_module.h"
+
 #include "htslib/faidx.h"
 #include "htslib_fetcher.h"
 
@@ -37,7 +40,7 @@
 typedef struct {
   char* endpoint_base;      /* Base url for our endpoints */
   apr_hash_t* checksums;    /* Checksums allowed to be queried, from seqfile record blocks */
-  files_mgr* files;         /* Files manager object pointer */
+  files_mgr_t* files;         /* Files manager object pointer */
   apr_hash_t* labels;       /* Labels for sequence aliases seen, eg md5, sha1 */
   int labels_endpoints;     /* Boolean flag on if labels based endpoints are
 			       enabled. eg /sequence/md5/<hash>/ */
@@ -45,27 +48,18 @@ typedef struct {
 } mod_Faidx_svr_cfg;
 
 static int Faidx_handler(request_rec* r);
-static int Faidx_sets_handler(request_rec* r, Faidx_Obj_holder* Fais);
-static int Faidx_locations_handler(request_rec* r, char* set);
 static int mod_Faidx_hook_post_config(apr_pool_t *pconf, apr_pool_t *plog,
                                        apr_pool_t *ptemp, server_rec *s);
-int Faidx_init_checksums(server_rec* svr, Faidx_Checksum_obj* checksum_list);
 static apr_status_t Faidx_cleanup_fais(void* server_cfg);
 static void mod_Faidx_hooks(apr_pool_t* pool);
-static void mod_Faidx_remove_fai(Faidx_Obj_holder** parent_Fai_Obj, Faidx_Obj_holder* Fai_Obj);
 
 static void* mod_Faidx_svr_conf(apr_pool_t* pool, server_rec* s);
-static Faidx_Obj_holder* mod_Faidx_fetch_fai(server_rec* s, apr_pool_t* pool,  const char* hFai, int make);
-static Faidx_Checksum_obj* mod_Faidx_fetch_checksum(server_rec* s, apr_pool_t* pool, const char* checksum, int checksum_type, int make);
-static void mod_Faidx_remove_checksum(Faidx_Checksum_obj** parent_Checksum_Obj, Faidx_Checksum_obj* Checksum_Obj);
-static const char* modFaidx_set_handler(cmd_parms* cmd, void* cfg, const char* HandlerName);
-static const char* modFaidx_init_set(cmd_parms* cmd, void* cfg, const char* SetName, const char* SetFilename);
-static const char* modFaidx_set_MD5(cmd_parms* cmd, void* cfg, const char* Checksum, const char* SetName, const char* Location);
-static const char* modFaidx_set_SHA1(cmd_parms* cmd, void* cfg, const char* Checksum, const char* SetName, const char* Location);
 void print_fasta(request_rec* r, char* header, char* seq, int seq_len);
 int Faidx_create_header(char* buf, int format, char* set, char* seq_name, char* location, int seq_count);
 int Faidx_append_or_send(request_rec* r, char* send_ptr, int send_length, int* buf_remaining, char** buf_ptr, int flush);
 int Faidx_create_footer(char* buf, int format);
+const int mod_Faidx_create_iterator(request_rec* r, mod_Faidx_svr_cfg* svr, apr_hash_t *formdata, seq_iterator_t** sit);
+seq_iterator_t* iterator_pool_copy(request_rec* r, seq_iterator_t* siterator);
 
 static apr_hash_t *parse_form_from_string(request_rec *r, char *args);
 static apr_hash_t* parse_form_from_GET(request_rec *r);

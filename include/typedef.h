@@ -22,7 +22,7 @@
 #define __MOD_FAIDX_TYPEDEF_H__
 
 #include <apr_tables.h>
-#include <apr_md5.h>
+#include <openssl/md5.h>
 
 #ifndef DEFAULT_FILES_CACHE_SIZE
 #define DEFAULT_FILES_CACHE_SIZE 100
@@ -34,10 +34,10 @@
 #define MAX_SEQUENCES 25 /* Maximum number of sequences a user is allowed to request, not implemented */
 #define MAX_HEADER 120 /* Maximum size of a header chunk, including NUL */
 
-#define SEQ_ENDPOINT_DIRECTIVE sequence_base_uri
-#define SEQFILE_CACHESIZE_DIRECTIVE sequence_cachesize
-#define LABELS_ENDPOINT_DIRECTIVE sequence_enable_labels
-#define SEQ_DIRECTIVE seq
+#define SEQ_ENDPOINT_DIRECTIVE "sequence_base_uri"
+#define SEQFILE_CACHESIZE_DIRECTIVE "sequence_cachesize"
+#define LABELS_ENDPOINT_DIRECTIVE "sequence_enable_labels"
+#define SEQ_DIRECTIVE "seq"
 
 #define BEGIN_SEQFILE "<SeqFile"
 #define END_SEQFILE "</SeqFile>"
