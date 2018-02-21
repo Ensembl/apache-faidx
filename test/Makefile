@@ -35,6 +35,4 @@ $(TARGETS) : % : %.o $(DEPS)
 
 clean:
 	rm -rf *.o *.so *.lo *.slo *.la .libs
-	for target in $(TARGETS); do \
-		rm $(target)
-	done
+	$(shell for target in $(TARGETS); do rm $$target; done)

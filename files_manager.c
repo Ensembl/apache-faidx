@@ -66,6 +66,11 @@ files_mgr_t* init_files_mgr(apr_pool_t *parent_pool) {
 
 seq_file_t* files_mgr_get_seqfile(files_mgr_t* fm, const unsigned char* seqfile_md5) {
   seq_file_t *seqfile;
+  printf("get md5:\n");
+  files_mgr_print_md5(seqfile_md5);
+
+  files_mgr_print_md5(fm);
+  files_mgr_print_md5(fm->seqfiles);
 
   seqfile = (seq_file_t*)apr_hash_get(fm->seqfiles, (const void*)seqfile_md5, MD5_DIGEST_LENGTH);
 
@@ -109,6 +114,8 @@ seq_file_t* files_mgr_lookup_file(files_mgr_t* fm, char* path) {
   /* Create the digest for the filename */
   MD5((const unsigned char *)path, strlen(path), md5);
 
+  printf("md5\n");
+  files_mgr_print_md5(md5);
   return files_mgr_get_seqfile(fm, (const unsigned char*)md5);
 }
 
@@ -184,6 +191,7 @@ int files_mgr_add_checksum(files_mgr_t* fm, checksum_obj* checksum_holder, char*
   seq = apr_hash_get(seqfile->sequences, seqname, APR_HASH_KEY_STRING);
 
   if(!seq) { /* We can't find that sequence in the seqfile */
+    fprintf(stderr, "seqfile not found: %s\n", seqname);
     return APR_NOTFOUND;
   }
 
@@ -457,6 +465,6 @@ void files_mgr_print_md5(const unsigned char* md5) {
   int i;
 
   for(i = 0; i < MD5_DIGEST_LENGTH; i++)
-    printf("%02x", md5[i]);
-  printf("\n");
+    fprintf(stderr, "%02x", md5[i]);
+  fprintf(stderr, "\n");
 }

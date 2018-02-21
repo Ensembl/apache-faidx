@@ -30,7 +30,8 @@
 
 #define MAX_SIZE 16384
 #define MAX_FASTA_LINE_LENGTH 60
-#define CHUNK_SIZE 1048576 /* Chunk size, 1MB */
+#define CHUNK_SIZE 1000 /* Chunk size, 1MB */
+/*#define CHUNK_SIZE 1048576 /* Chunk size, 1MB */
 #define MAX_SEQUENCES 25 /* Maximum number of sequences a user is allowed to request, not implemented */
 #define MAX_HEADER 120 /* Maximum size of a header chunk, including NUL */
 

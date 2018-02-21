@@ -50,7 +50,7 @@ AP_INIT_RAW_ARGS(BEGIN_SEQFILE, seqfile_section, NULL, EXEC_ON_READ | RSRC_CONF,
   </seqfile>
 */
 
-static const char *seqfile_section(cmd_parms * cmd, void * _cfg, const chat * arg) {
+static const char* seqfile_section(cmd_parms * cmd, void * _cfg, const char * arg) {
   char* endp;
   char* checksum;
   char* file;
@@ -155,7 +155,7 @@ static const char *seqfile_section(cmd_parms * cmd, void * _cfg, const chat * ar
   return apr_psprintf(cmd->pool, "Expected token not found %s", END_SEQFILE);
 }
 
-checksum_obj* parse_seq_token(cmd_parms * cmd, char** seqname, char** seq_checksum,  char* args) {
+static checksum_obj* parse_seq_token(cmd_parms * cmd, char** seqname, char** seq_checksum,  char* args) {
   char* ptr;
   char* checksum_type;
   checksum_obj* checksum_holder;

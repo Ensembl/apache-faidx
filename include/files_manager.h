@@ -66,6 +66,7 @@ typedef struct {
 files_mgr_t* init_files_mgr(apr_pool_t *parent_pool);
 seq_file_t* files_mgr_get_seqfile(files_mgr_t* fm, const unsigned char* seqfile_md5);
 seq_file_t* files_mgr_use_seqfile(files_mgr_t* fm, const unsigned char* seqfile_md5);
+seq_file_t* files_mgr_lookup_file(files_mgr_t* fm, char* path);
 const unsigned char* files_mgr_add_seqfile(files_mgr_t* fm, char* path, int type);
 int files_mgr_add_checksum(files_mgr_t* fm, checksum_obj* checksum_holder, char* checksum, char* seqname);
 alias_obj* files_mgr_add_alias(files_mgr_t* fm, sequence_obj* seq);

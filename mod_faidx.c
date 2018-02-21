@@ -21,16 +21,6 @@
  limitations under the License.
 */
 
-#include <httpd.h>
-#include <http_protocol.h>
-#include <http_config.h>
-#include <http_log.h>
-#include <apr_strings.h>
-#include <apr_hash.h>
-#include <apr_escape.h>
-#include <ap_mpm.h>
-#include <unistd.h>
-#include <string.h>
 #include "mod_faidx.h"
 
 /* Hook our handler into Apache at startup */
@@ -43,6 +33,7 @@ static void mod_Faidx_hooks(apr_pool_t* pool) {
 
 /* pre-init, set some defaults for the linked lists */
 static void* mod_Faidx_svr_conf(apr_pool_t* pool, server_rec* s) {
+  ap_log_error(APLOG_MARK, APLOG_ERR, 0, s, "making server config stuffs");
   /* Create the config object for this module */
   mod_Faidx_svr_cfg* svr = apr_pcalloc(pool, sizeof(mod_Faidx_svr_cfg));
 
@@ -52,6 +43,10 @@ static void* mod_Faidx_svr_conf(apr_pool_t* pool, server_rec* s) {
   /* Initialize the files manager and get back a
      pointer to the control object */
   svr->files = init_files_mgr(pool);
+  if(svr->files == NULL) {
+    ap_log_error(APLOG_MARK, APLOG_CRIT, 0, s, "Error initializing files manager");
+    return NULL;
+  }
 
   /* Create the hash for alias type labels (md5, sha1, etc) */
   svr->labels = apr_hash_make(pool);
@@ -67,21 +62,31 @@ static void* mod_Faidx_svr_conf(apr_pool_t* pool, server_rec* s) {
   /* Set the cache size in case the user doesn't set it in the config */
   svr->cachesize = DEFAULT_FILES_CACHE_SIZE;
 
+  ap_log_error(APLOG_MARK, APLOG_ERR, 0, s, "done making server config stuffs");
+
   return svr;
 }
 
+static const char* modFaidx_init_set(cmd_parms* cmd, void* cfg, const char* SetName) {
+  ap_log_error(APLOG_MARK, APLOG_ERR, 0, cmd->server, "faidx set %s", SetName);
+
+}
+
 static const command_rec mod_Faidx_cmds[] = {
-  AP_INIT_TAKE1(SEQ_ENDPOINT_DIRECTIVE, ap_set_string_slot,
+  /*  AP_INIT_TAKE1(SEQ_ENDPOINT_DIRECTIVE, ap_set_string_slot,
 		(void *)APR_OFFSETOF(mod_Faidx_svr_cfg, endpoint_base),
-		RSRC_CONF, "Base URI for module endpoints"),
-  AP_INIT_FLAG(SEQFILE_CACHESIZE_DIRECTIVE, ap_set_int_slot,
+		RSRC_CONF, "Base URI for module endpoints"),*/
+  AP_INIT_TAKE1(SEQFILE_CACHESIZE_DIRECTIVE, ap_set_int_slot,
 	       (void *)APR_OFFSETOF(mod_Faidx_svr_cfg, cachesize),
 	       RSRC_CONF, "Set the cache size for seqfiles"),
-  AP_INIT_TAKE1(LABELS_ENDPOINT_DIRECTIVE, ap_set_flag_slot,
-		(void *)APR_OFFSETOF(mod_Faidx_svr_cfg, labels_endpoints),
-		RSRC_CONF, "Enable labels endpoints, limited to 'on' or 'off'"),
+  AP_INIT_FLAG(LABELS_ENDPOINT_DIRECTIVE, ap_set_flag_slot,
+	       (void *)APR_OFFSETOF(mod_Faidx_svr_cfg, labels_endpoints),
+	       RSRC_CONF, "Enable labels endpoints, limited to 'on' or 'off'"),
   AP_INIT_RAW_ARGS(BEGIN_SEQFILE, seqfile_section, NULL, EXEC_ON_READ | RSRC_CONF,
 		   "Beginning of a sequence file definition section."),
+
+  AP_INIT_TAKE1("FaidxSet", modFaidx_init_set, NULL, RSRC_CONF,
+		"Initialize a faidx set"),
   { NULL }
 };
 
@@ -142,7 +147,7 @@ static int Faidx_handler(request_rec* r) {
   }
 
   /* Is this our request, check the base URI the user gave us */
-  if ( !r->handler || strcmp(r->handler, svr->endpoint_base) ) {
+  if ( !r->handler || strcmp(r->handler, "faidx") ) {
     return DECLINED ;   /* none of our business */
   } 
 
@@ -202,12 +207,14 @@ static int Faidx_handler(request_rec* r) {
      iterator.
   */
   if(r->method_number == M_GET) {
+    ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, "uri: %s", uri);
 
     while(uri[0]) {
+      ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, "uri loop: %s", uri);
       /* Find the first verb in the uri.
 	 uri gets updated to the location after the separator.
       */
-      uri_ptr = ap_getword(r->pool, &uri, '/');
+      uri_ptr = ap_getword_nc(r->pool, &uri, '/');
 
       /* See if we've been asked for information on the sets */
       if( !strcmp(uri_ptr, "metadata") ) {
@@ -229,7 +236,7 @@ static int Faidx_handler(request_rec* r) {
     }
 
     /* Get the checksum we're going to be working on */
-    checksum_holder = apr_hash_get(svr->labels, checksum, APR_HASH_KEY_STRING);
+    checksum_holder = apr_hash_get(svr->checksums, checksum, APR_HASH_KEY_STRING);
 
     if(checksum_holder == NULL) {
       ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
@@ -238,6 +245,7 @@ static int Faidx_handler(request_rec* r) {
     }
 
     /* Decode the query string */
+    ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, "decoding query string");
     formdata = parse_form_from_GET(r);
 
     /* Put the checksum information in the formdata, it's just
@@ -247,8 +255,15 @@ static int Faidx_handler(request_rec* r) {
       apr_hash_set(formdata, apr_pstrdup(r->pool, "type"), APR_HASH_KEY_STRING, checksum_type);
     }
 
+    /* If the user has passed us a range via the header, use it */
+    val = apr_table_get(r->headers_in, "Range");
+    if(val) {
+      apr_hash_set(formdata, apr_pstrdup(r->pool, "range"), APR_HASH_KEY_STRING, apr_pstrdup(r->pool, val));
+    }
+
     /* And let's send the request off to transform in to a seq iterator */
     siterator = NULL;
+    ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, "creating iterator");
     rv = mod_Faidx_create_iterator(r, svr, formdata, &siterator);
 
     /* If an error condition was returned, bail and send it up the stack */
@@ -256,10 +271,13 @@ static int Faidx_handler(request_rec* r) {
       return rv;
     }
 
+    if(siterator == NULL) return HTTP_INTERNAL_SERVER_ERROR;
+
     /* If we've reached this point we must have an iterator and be ready to
        send back sequence. Make a copy in to the request pool and free the
        malloc'ed one from the external library. */
     *(seq_iterator_t**)apr_array_push(location_iterators) = iterator_pool_copy(r, siterator);
+    print_iterator(r, siterator);
     tark_free_iterator(siterator);
 
 
@@ -343,6 +361,7 @@ static int Faidx_handler(request_rec* r) {
      a type writer, we'll keep filling the send buffer, then flush when
      full. This allows us to chunk if needed or set the content. */
   while(siterator = *(seq_iterator_t**)apr_array_pop(location_iterators)) {
+    print_iterator(r, siterator);
     location_offset = Faidx_create_header(h_buf, accept, set, siterator->seq_name, siterator->location_str, Loc_count);
     if(location_offset > MAX_HEADER) {
       location_offset = MAX_HEADER;
@@ -354,10 +373,12 @@ static int Faidx_handler(request_rec* r) {
     if( Faidx_append_or_send( r, h_buf, location_offset, &buf_remaining, &send_buf_cur, 0 ) ) {
       flushed = 1;
     }
+    ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, "1");
 
     /* Go through the iterators and start fetching sequence,
        sending chunks to the user if we fill up the buffer. */
     while(tark_iterator_remaining(siterator, translate) > 0) {
+    ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, "loop");
       s = buf_remaining;
 
       if(translate == 1) {
@@ -379,10 +400,12 @@ static int Faidx_handler(request_rec* r) {
       }
 
     }
+    ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, "out of loop");
 
     Loc_count++;
 
   } /* end iterator while */
+    ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, "out of loop 2");
 
   /* Make footer if needed (JSON) and append to send buffer */
   /* Flush the buffer of last chars. If flushed == 0, we never
@@ -578,8 +601,10 @@ const int mod_Faidx_create_iterator(request_rec* r, mod_Faidx_svr_cfg* svr, apr_
   }
 
   if(apr_hash_get(formdata, "range", APR_HASH_KEY_STRING)) {
-    locs = apr_psprintf(r->pool, "%s:%d", apr_hash_get(formdata, "range", APR_HASH_KEY_STRING), strand);
+    ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, "RANGE");
+    locs = apr_psprintf(r->pool, "%s:%d", (char*)apr_hash_get(formdata, "range", APR_HASH_KEY_STRING), strand);
   }
+    ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, "POST RANGE");
 
   if(apr_hash_get(formdata, "start", APR_HASH_KEY_STRING) || apr_hash_get(formdata, "end", APR_HASH_KEY_STRING)) {
     apr_table_setn(r->headers_out, "Accept-Ranges", "none"); /* If we have query parameters, deny Range requests */
@@ -645,7 +670,8 @@ const int mod_Faidx_create_iterator(request_rec* r, mod_Faidx_svr_cfg* svr, apr_
 
   /* Copy over the address of the iterator */
   *sit = siterator;
-  
+      ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, "END create iterator");
+
   return OK;
 }
 
@@ -668,6 +694,164 @@ seq_iterator_t* iterator_pool_copy(request_rec* r, seq_iterator_t* siterator) {
   return aiterator;
 }
 
+/* 
+   Parse a <seqfile> custom tag and initialize the
+   corresponding seqfiles in the files manager.
+
+   A seqfile section should look like:
+   <seqfile /path/file.faa>
+     Seq 1 md5  abcdef1234
+     Seq 1 sha1 987654abcd
+  </seqfile>
+*/
+
+static const char* seqfile_section(cmd_parms * cmd, void * dummy, const char * arg) {
+  char* endp;
+  const unsigned char* checksum;
+  char* file;
+  char* ptr;
+  char* first;
+  char* seqname;
+  char* seq_checksum;
+  checksum_obj* checksum_holder;
+  int line_no = 0;
+  int rv;
+  char line[MAX_STRING_LEN]; /* expected by ap_cfg_getline */
+  /* Cast the module config for convenience */
+  mod_Faidx_svr_cfg* cfg = ap_get_module_config(cmd->server->module_config, &faidx_module);
+
+  ap_log_error(APLOG_MARK, APLOG_ERR, 0, cmd->server, "IN seqfile_section");
+
+  /* Find the argument on the <seqfile > line */
+  endp = ap_strrchr_c(arg, '>');
+  if(endp == NULL) {
+    return apr_pstrcat(cmd->pool, cmd->cmd->name,
+		       "> directive missing closing '>'", NULL);
+  }
+
+  /* NULL terminate the arg string */
+  if(endp) {
+    *endp = '\0';
+  }
+
+  /* Get the argument, we make the copy to allow the APR to deal with
+     quoting and other weirdness. Then we hand it off to the files
+     manager, this is where we'd eventually have to handle different
+     file types should we ever have those, determining what it is and
+     changing the constant sent in the last argument as appropriate. */
+  file = ap_getword_conf(cmd->temp_pool, &arg);
+
+  /* Check for a duplicate, if we've seen this seqfile before, ignore the entire block */
+  ap_log_error(APLOG_MARK, APLOG_ERR, 0, cmd->server, "file in seqfile_section: %s", file);
+  if(files_mgr_lookup_file(cfg->files, file) != NULL) {
+	ap_log_error(APLOG_MARK, APLOG_WARNING, 0, cmd->server, "Warning, seqfile %s has been seen before, ignoring", file);
+	return NULL;
+  }
+  ap_log_error(APLOG_MARK, APLOG_ERR, 0, cmd->server, "HERE IN seqfile_section");
+
+  checksum = files_mgr_add_seqfile(cfg->files, file, FM_FAIDX);
+      files_mgr_print_md5(checksum);
+
+  /* This is also where the file type could go in, as a (optional?) second argument */
+  trim(arg);
+  if(*arg) {
+    return "<seqfile> only takes at most one argument";
+  }
+
+  /* We didn't get a checksum back from the files manager */
+  if(!checksum) {
+    return apr_pstrcat(cmd->pool, cmd->cmd->name,
+		       "We couldn't initialize seqfile ", file, NULL);
+  }
+
+  ap_log_error(APLOG_MARK, APLOG_ERR, 0, cmd->server, "FURTHER IN seqfile_section");
+  /* Now we start to go through the config file finding directives */
+  while(!ap_cfg_getline(line, MAX_STRING_LEN, cmd->config_file)) {
+    line_no++;
+    ptr = line;
+
+    first = ap_getword_conf_nc(cmd->temp_pool, &ptr);
+
+    /* first char? or first non blank? Need to double check this */
+    if(*first == '#') continue;
+
+    if( !strcasecmp(first, END_SEQFILE) ) { /* We've found the end token */
+      /* We're done, return */
+      return NULL;
+    }
+    ap_log_error(APLOG_MARK, APLOG_ERR, 0, cmd->server, "rest of line: %s", ptr);
+
+    if( !strcasecmp(first, SEQ_DIRECTIVE) ) {
+      /* We've found a sequence checksum, parse and add it */
+      checksum_holder = parse_seq_token(cmd, &seqname, &seq_checksum, ptr);
+
+      if(checksum_holder == NULL) { /* We didn't get a checksum holder back, this is an error */
+	return apr_psprintf(cmd->pool, "Malformed Seq directive on line %d of <Seqfile %s>", line_no, file);
+      }
+
+      memcpy(checksum_holder->file, checksum, MD5_DIGEST_LENGTH);
+
+      /* Add the checksum object to the sequence, this creates all the linkages between
+         a checksum object and the sequence. It also creates the corresponding entry in
+         the aliases list for the sequence. */
+      files_mgr_print_md5(checksum_holder->file);
+      fprintf(stderr, "seqname: %s\n", seqname);
+      rv = files_mgr_add_checksum(cfg->files, checksum_holder, seq_checksum, seqname);
+      if(rv != APR_SUCCESS) {
+	return apr_psprintf(cmd->pool, "Seq %s not found in Seqfile %s", seqname, file);
+      }
+
+      /* And we're good to add the checksum to the server's master hash */
+      if(apr_hash_get(cfg->checksums, seq_checksum, APR_HASH_KEY_STRING) == NULL) {
+	apr_hash_set(cfg->checksums, apr_pstrdup(cmd->pool, seq_checksum), APR_HASH_KEY_STRING, checksum_holder);
+      } else {
+	ap_log_error(APLOG_MARK, APLOG_WARNING, 0, cmd->server, "Warning, hash %s has been seen before, ignoring in %s", seq_checksum, file);
+      }
+
+      /* See if we've seen this type of label before, if not, remember we've seen this kind.
+         This is only useful if we have the per-label endpoints enabled. */
+      if(apr_hash_get(cfg->labels, checksum_holder->checksum_type, APR_HASH_KEY_STRING) == NULL) {
+	apr_hash_set(cfg->labels, apr_pstrdup(cmd->pool, checksum_holder->checksum_type), APR_HASH_KEY_STRING, apr_pstrdup(cmd->pool, "1"));
+      }
+    }
+  }
+
+  /* If we've gotten here we've bottomed out the config file and didn't
+     find the end token. */
+  return apr_psprintf(cmd->pool, "Expected token not found %s", END_SEQFILE);
+}
+
+checksum_obj* parse_seq_token(cmd_parms * cmd, char** seqname, char** seq_checksum,  char* args) {
+  char* checksum_type;
+  checksum_obj* checksum_holder;
+
+  /* We're going to need to pop the arguments off one by one and in between
+     check we still have more arguments. With each call to ap_getword_conf_nc
+     args is set to the next word or the trailing \0 of the string if we're at
+     the end.
+   */
+
+  if(*args == '\0') return NULL; /* No arguments? That's an error! */
+  *seqname = ap_getword_conf_nc(cmd->temp_pool, &args);
+  fprintf(stderr, "fucking seqname: %s\n", *seqname);
+
+  if(*args == '\0') return NULL; /* No more arguments? That's an error! */
+  checksum_type = ap_getword_conf_nc(cmd->temp_pool, &args);
+
+  if(*args == '\0') return NULL; /* No more arguments? That's an error! */
+  *seq_checksum = ap_getword_conf_nc(cmd->temp_pool, &args);
+
+  if(*args) return NULL; /* More arguments? Oh, you better believe that's an error. */
+
+  /* We're good to make our checksum object */
+  checksum_holder = (checksum_obj*)apr_palloc(cmd->pool, sizeof(checksum_obj));
+
+  checksum_holder->checksum_type = apr_pstrdup(cmd->pool, checksum_type);
+
+  return checksum_holder;
+}
+
+
 /* Add error reporting?  "Could not load model" etc */
 
 static int mod_Faidx_hook_post_config(apr_pool_t *pconf, apr_pool_t *plog,
@@ -678,6 +862,7 @@ static int mod_Faidx_hook_post_config(apr_pool_t *pconf, apr_pool_t *plog,
   void *data = NULL;
   const char *userdata_key = "shm_counter_post_config";
   int result;
+  ap_log_error(APLOG_MARK, APLOG_ERR, 0, s, "post config hook");
 
  /* We don't support threaded MPMs, as htslib is not thread safe.
     So die immediately on trying to configure the module.
@@ -690,12 +875,12 @@ static int mod_Faidx_hook_post_config(apr_pool_t *pconf, apr_pool_t *plog,
   }
 
   /* If the user hasn't set a URI fragment for us, this is a failure */
-  if(svr->endpoint_base == NULL) {
+  /*  if(svr->endpoint_base == NULL) {
     ap_log_error(APLOG_MARK, APLOG_ERR, 0, s,
 		 "Endpoint base URI isn't set");
     return DECLINED;
 
-  }
+    }*/
 
 #ifdef DEBUG
   ap_log_error(APLOG_MARK, APLOG_ERR, 0, s,
@@ -1106,4 +1291,26 @@ strrstr(char *string, char *find)
 			return cp;
 
 	return NULL;
+}
+
+void print_iterator(request_rec* r, seq_iterator_t* siterator) {
+  int rv;
+  int i;
+
+  ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, "__ITERATOR__");
+  ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, "seq_name: %s", siterator->seq_name);
+  ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, "location_str: %s", siterator->location_str);
+  ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, "seq_length: %d", siterator->seq_length);
+  ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, "seq_iterated: %d", siterator->seq_iterated);
+  ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, "line_length: %d", siterator->line_length);
+  ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, "strand: %d", siterator->strand);
+  ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, "translate: %d", siterator->translate);
+  ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, "location count: %d",tark_iterator_locations_count(siterator));
+
+  for(i = 0; i < tark_iterator_locations_count(siterator); i++) {
+    ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, "Seq Location %d", i);
+    ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, "start: %d", siterator->locations[0].start);
+    ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, "end: %d", siterator->locations[0].end);
+    ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, "length: %d", siterator->locations[0].length);
+  }
 }

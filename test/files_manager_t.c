@@ -44,6 +44,8 @@ int main(int argc, const char* argv[]) {
 
   ASSERT_PTR_NOTNULL(fm);
 
+  ASSERT_PTR_EQUAL( files_mgr_lookup_file(fm, cat), NULL );
+
   checksums[0] = files_mgr_add_seqfile(fm, cat, FM_FAIDX);
   ASSERT_PTR_NOTNULL(checksums[0]);
 
@@ -54,6 +56,8 @@ int main(int argc, const char* argv[]) {
   ASSERT_PTR_NOTNULL(seqfile);
 
   ASSERT_TRUE( files_mgr_seqfile_usable(seqfile) );
+
+  ASSERT_PTR_NOTNULL( files_mgr_lookup_file(fm, cat) );
 
   files_mgr_resize_cache(fm, 1);
   ASSERT_FALSE( files_mgr_seqfile_usable(seqfile) );

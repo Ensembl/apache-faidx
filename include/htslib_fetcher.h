@@ -23,6 +23,8 @@
 
 #include "htslib/faidx.h"
 
+#include <stdio.h>
+
 typedef struct seq_location {
   unsigned int start;
   unsigned int end;
@@ -60,6 +62,6 @@ char* tark_translate_seqs(char **str, int seq_len, int nseqs, int strand);
 char* tark_revcomp_seq(char *seq);
 char* tark_rev_seq(char* seq);
 char** tark_fetch_seqs(faidx_t* fai, const char *str, int *seq_len, int *nseqs, int *strand);
-inline int memcpy_with_cr(void* dest, void* src, int len, int line_len, int *bytes_to_cr);
+int memcpy_with_cr(void* dest, void* src, int len, int line_len, int *bytes_to_cr);
 
 #endif

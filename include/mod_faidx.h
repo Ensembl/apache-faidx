@@ -23,10 +23,20 @@
 
 #include "typedef.h"
 #include "files_manager.h"
-#include "init_module.h"
 
 #include "htslib/faidx.h"
 #include "htslib_fetcher.h"
+
+#include <httpd.h>
+#include <http_protocol.h>
+#include <http_config.h>
+#include <http_log.h>
+#include <apr_strings.h>
+#include <apr_hash.h>
+#include <apr_escape.h>
+#include <ap_mpm.h>
+#include <unistd.h>
+#include <string.h>
 
 //static const int MAX_SIZE = 16384;
 //static const int MAX_FASTA_LINE_LENGTH = 60;
@@ -35,6 +45,7 @@
 //static const int MAX_HEADER = 120; /* Maximum size of a header chunk, including NUL */
 
 #define OFFSET(remaining) (CHUNK_SIZE - remaining - 1)
+#define trim(line) while (*(line)==' ' || *(line)=='\t') (line)++
 
 /* server config structure */
 typedef struct {
@@ -61,6 +72,9 @@ int Faidx_create_footer(char* buf, int format);
 const int mod_Faidx_create_iterator(request_rec* r, mod_Faidx_svr_cfg* svr, apr_hash_t *formdata, seq_iterator_t** sit);
 seq_iterator_t* iterator_pool_copy(request_rec* r, seq_iterator_t* siterator);
 
+static const char* seqfile_section(cmd_parms * cmd, void * _cfg, const char * arg);
+checksum_obj* parse_seq_token(cmd_parms * cmd, char** seqname, char** seq_checksum,  char* args);
+
 static apr_hash_t *parse_form_from_string(request_rec *r, char *args);
 static apr_hash_t* parse_form_from_GET(request_rec *r);
 static int parse_form_from_POST(request_rec* r, apr_hash_t** form, int json_data);
@@ -70,5 +84,7 @@ static char* get_value(request_rec * r, char** s);
 
 static char* Faidx_fetch_sequence_name(request_rec * r, char* location, int* i);
 static char* strrstr(char*, char*);
+
+void print_iterator(request_rec* r, seq_iterator_t* siterator);
 
 #endif

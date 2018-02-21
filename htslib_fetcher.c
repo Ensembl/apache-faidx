@@ -436,7 +436,7 @@ char* _tark_iterator_fetch_seq(seq_iterator_t* siterator, int *seq_len, char* se
    calls us should be sane in how it passes parameters. We're not going to recheck thing
    that the caller shouldn't have gotten wrong. */
 
-inline int memcpy_with_cr(void* dest, void* src, int len, int line_len, int *bytes_to_cr) {
+int memcpy_with_cr(void* dest, void* src, int len, int line_len, int *bytes_to_cr) {
   int cr = 0;
 
   if(len < *bytes_to_cr) {

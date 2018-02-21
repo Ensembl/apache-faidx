@@ -10,6 +10,7 @@ CC=gcc
 CXX=g++
 CFLAGS=$(shell ${APR_CONFIG} --cflags --cppflags --includes) -I$(HTSLIB_DIR) -I$(INCDIR) -Wall
 CXXFLAGS=$(shell ${APR_CONFIG} --cflags --cppflags --includes) -I$(HTSLIB_DIR) -I$(INCDIR) -Wall
+LDLIBS=-lhts -lz -lcrypto
 
 DEPS = $(wildcard $INCDIR/*.h) $(TARGET_LIB)
 
@@ -20,13 +21,13 @@ DEPS = $(wildcard $INCDIR/*.h) $(TARGET_LIB)
 all:
 
 apmodule:
-	apxs2 -c -L$(HTSLIB_DIR) -I$(HTSLIB_DIR) -I$(INCDIR) -Wl,-rpath=$(HTSLIB_DIR) -lhts -lz mod_faidx.c htslib_fetcher.c files_manager.c init_module.c
+	apxs2 -c -L$(HTSLIB_DIR) -I$(HTSLIB_DIR) -I$(INCDIR) -Wl,-rpath=$(HTSLIB_DIR) $(LDLIBS) mod_faidx.c htslib_fetcher.c files_manager.c
 
 apmodule_debug:
-	apxs2 -DDEBUG=1 -c -L$(HTSLIB_DIR) -I$(HTSLIB_DIR) -I$(INCDIR) -Wl,-rpath=$(HTSLIB_DIR) -lhts -lz mod_faidx.c htslib_fetcher.c files_manager.c init_module.c
+	apxs2 -DDEBUG=1 -c -L$(HTSLIB_DIR) -I$(HTSLIB_DIR) -I$(INCDIR) -Wl,-rpath=$(HTSLIB_DIR) $(LDLIBS) mod_faidx.c htslib_fetcher.c files_manager.c
 
 apmodule_coveralls:
-	apxs2 -DDEBUG=1 -c -L$(HTSLIB_DIR) -I$(HTSLIB_DIR) -I$(INCDIR) -Wl,-rpath=$(HTSLIB_DIR) "-Wc,-g -O0 --coverage" -lhts -lz -lgcov mod_faidx.c htslib_fetcher.c files_manager.c init_module.c
+	apxs2 -DDEBUG=1 -c -L$(HTSLIB_DIR) -I$(HTSLIB_DIR) -I$(INCDIR) -Wl,-rpath=$(HTSLIB_DIR) "-Wc,-g -O0 --coverage" $(LDLIBS) -lgcov mod_faidx.c htslib_fetcher.c files_manager.c
 
 install: apmodule
 	apxs2 -i -n faidx .libs/mod_faidx.so
