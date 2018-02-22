@@ -69,6 +69,7 @@ void print_fasta(request_rec* r, char* header, char* seq, int seq_len);
 int Faidx_create_header(char* buf, int format, char* set, char* seq_name, char* location, int seq_count);
 int Faidx_append_or_send(request_rec* r, char* send_ptr, int send_length, int* buf_remaining, char** buf_ptr, int flush);
 int Faidx_create_footer(char* buf, int format);
+int Faidx_create_end(char* buf, int format);
 const int mod_Faidx_create_iterator(request_rec* r, mod_Faidx_svr_cfg* svr, apr_hash_t *formdata, seq_iterator_t** sit);
 seq_iterator_t* iterator_pool_copy(request_rec* r, seq_iterator_t* siterator);
 int metadata_handler(request_rec* r, const char* checksum, checksum_obj* checksum_holder);

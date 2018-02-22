@@ -33,6 +33,7 @@ typedef struct seq_location {
 
 typedef struct seq_iterator {
   faidx_t* fai;
+  char* checksum;
   char* seq_name;
   char* location_str;
   unsigned int seq_length;

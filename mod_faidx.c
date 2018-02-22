@@ -161,11 +161,11 @@ static int Faidx_handler(request_rec* r) {
 	     != NULL)) {
     accept = CONTENT_FASTA;
   } else if(val && (strcasestr(val,
-			       "text/plain")
+			       "application/json")
 		    != NULL)) {
-    accept = CONTENT_TEXT;
-  } else {
     accept = CONTENT_JSON;
+  } else {
+    accept = CONTENT_TEXT;
   }
 
   /* Ensure we have at least one checksum */
@@ -323,10 +323,10 @@ static int Faidx_handler(request_rec* r) {
 
   if(accept == CONTENT_FASTA) {
     ap_set_content_type(r, "text/x-fasta");
-  } else if(accept == CONTENT_TEXT) {
-    ap_set_content_type(r, "text/plain");
-  } else {
+  } else if(accept == CONTENT_JSON) {
     ap_set_content_type(r, "application/json");
+  } else {
+    ap_set_content_type(r, "text/plain");
   }
 
 
@@ -350,8 +350,7 @@ static int Faidx_handler(request_rec* r) {
 
   /* Start JSON header */
   if(accept == CONTENT_JSON) {
-    location_offset = snprintf( h_buf, MAX_HEADER, "{\n    \"set\": \"%s\",\n",
-			   set );
+    location_offset = snprintf( h_buf, MAX_HEADER, "[\n" );
 
     if( Faidx_append_or_send( r, h_buf, location_offset, &buf_remaining, &send_buf_cur, 0 ) ) {
       flushed = 1;
@@ -366,7 +365,7 @@ static int Faidx_handler(request_rec* r) {
 #ifdef DEBUG
     print_iterator(r, siterator);
 #endif
-    location_offset = Faidx_create_header(h_buf, accept, set, siterator->seq_name, siterator->location_str, Loc_count);
+    location_offset = Faidx_create_header(h_buf, accept, siterator->checksum, siterator->seq_name, siterator->location_str, Loc_count);
     if(location_offset > MAX_HEADER) {
       location_offset = MAX_HEADER;
 #ifdef DEBUG
@@ -406,6 +405,12 @@ static int Faidx_handler(request_rec* r) {
 
     }
 
+    /* Just the end of a section if we're doing JSON */
+    location_offset = Faidx_create_footer(h_buf, accept);
+    if( Faidx_append_or_send( r, h_buf, location_offset, &buf_remaining, &send_buf_cur, 0 ) ) {
+      flushed = 1;
+    }
+
     Loc_count++;
 
   } /* end iterator while */
@@ -413,7 +418,7 @@ static int Faidx_handler(request_rec* r) {
   /* Make footer if needed (JSON) and append to send buffer */
   /* Flush the buffer of last chars. If flushed == 0, we never
      sent, so we're not doing chunked, set content-length */
-  location_offset = Faidx_create_footer(h_buf, accept);
+  location_offset = Faidx_create_end(h_buf, accept);
 
   /* By setting the remaining buffer to whatever we received from the
      footer (JSON close or 0), we force the buffer to be flushed at
@@ -530,13 +535,14 @@ int Faidx_create_header(char* buf, int format, char* set, char* seq_name, char* 
 		      location);
   } else if(format == CONTENT_JSON) {
 
-    if(seq_count > 0) {
+    if(seq_count > 1) {
       sent = snprintf( buf, remaining, "\",\n");
       remaining -= sent;
       buf += sent;
     }
 
-    sent += snprintf( buf, remaining, "    \"%s:%s\": \"",
+    sent += snprintf( buf, remaining, "  {\n    \"checksum\": \"%s\"\n    \"location\": \"%s:%s\"\n    \"seq\": \"",
+		      set,
 		      seq_name,
 		      location);
   } else {
@@ -554,8 +560,21 @@ int Faidx_create_footer(char* buf, int format) {
   unsigned int remaining = MAX_HEADER;
 
   if(format == CONTENT_JSON) {
+    sent = snprintf( buf, remaining, "\"\n  }" );
+  }
+
+  return sent;
+}
+
+/* buf must be at least MAX_HEADER size */
+
+int Faidx_create_end(char* buf, int format) {
+  unsigned int sent = 0;
+  unsigned int remaining = MAX_HEADER;
+
+  if(format == CONTENT_JSON) {
     /* Close the JSON */
-    sent = snprintf( buf, remaining, "\"\n}\n");
+    sent = snprintf( buf, remaining, "\n]\n");
   } else {
     /* Ensure the buffer is cleared if we're not writing to it */
     sent = snprintf( buf, remaining, "\n");
@@ -675,6 +694,8 @@ const int mod_Faidx_create_iterator(request_rec* r, mod_Faidx_svr_cfg* svr, apr_
     siterator->translate = strand;
   }
 
+  siterator->checksum = apr_pstrdup(r->pool, checksum);
+
   /* Copy over the address of the iterator */
   *sit = siterator;
 
@@ -696,6 +717,7 @@ seq_iterator_t* iterator_pool_copy(request_rec* r, seq_iterator_t* siterator) {
   aiterator->seq_name = apr_pstrdup(r->pool,
 				    (void*)siterator->seq_name);
   aiterator->location_str = apr_pstrdup(r->pool, siterator->location_str);
+  aiterator->checksum = apr_pstrdup(r->pool, siterator->checksum);
 
   return aiterator;
 }
