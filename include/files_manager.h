@@ -34,6 +34,10 @@
 
 #define FM_FAIDX 1
 
+/* For sanity, don't let them go beyond unless
+   they really know what they're doing and recompile */
+#define MAX_CACHESIZE 4096
+
 /* Representation of a sequence file.
    This can also be used as an element in an APR 
    ring container using the member 'link' as the

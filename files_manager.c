@@ -321,6 +321,12 @@ int files_mgr_seqfile_usable(seq_file_t *seqfile) {
 int files_mgr_resize_cache(files_mgr_t* fm, int new_cache_size) {
   seq_file_t *oldest_seqfile;
 
+  if(new_cache_size > MAX_CACHESIZE) { /* Sanity, don't let them open
+					thousands of file handles unless
+				        they REALLY know what they're doing */
+    new_cache_size = MAX_CACHESIZE;
+  }
+
   if(new_cache_size < fm->cache_size) { /* Are we shrinking the cache? */
 
     while(fm->cache_used > new_cache_size) {

@@ -64,26 +64,17 @@ static void* mod_Faidx_svr_conf(apr_pool_t* pool, server_rec* s) {
   return svr;
 }
 
-static const char* modFaidx_init_set(cmd_parms* cmd, void* cfg, const char* SetName) {
-  ap_log_error(APLOG_MARK, APLOG_ERR, 0, cmd->server, "faidx set %s", SetName);
-
-}
-
 static const command_rec mod_Faidx_cmds[] = {
   /*  AP_INIT_TAKE1(SEQ_ENDPOINT_DIRECTIVE, ap_set_string_slot,
 		(void *)APR_OFFSETOF(mod_Faidx_svr_cfg, endpoint_base),
 		RSRC_CONF, "Base URI for module endpoints"),*/
-  AP_INIT_TAKE1(SEQFILE_CACHESIZE_DIRECTIVE, ap_set_int_slot,
-	       (void *)APR_OFFSETOF(mod_Faidx_svr_cfg, cachesize),
-	       RSRC_CONF, "Set the cache size for seqfiles"),
+  AP_INIT_TAKE1(SEQFILE_CACHESIZE_DIRECTIVE, modFaidx_init_cachesize, NULL, RSRC_CONF,
+		"Set the cache size for seqfiles"),
   AP_INIT_FLAG(LABELS_ENDPOINT_DIRECTIVE, ap_set_flag_slot,
 	       (void *)APR_OFFSETOF(mod_Faidx_svr_cfg, labels_endpoints),
 	       RSRC_CONF, "Enable labels endpoints, limited to 'on' or 'off'"),
   AP_INIT_RAW_ARGS(BEGIN_SEQFILE, seqfile_section, NULL, EXEC_ON_READ | RSRC_CONF,
 		   "Beginning of a sequence file definition section."),
-
-  AP_INIT_TAKE1("FaidxSet", modFaidx_init_set, NULL, RSRC_CONF,
-		"Initialize a faidx set"),
   { NULL }
 };
 
@@ -902,6 +893,27 @@ checksum_obj* parse_seq_token(cmd_parms * cmd, char** seqname, char** seq_checks
   return checksum_holder;
 }
 
+static const char* modFaidx_init_cachesize(cmd_parms* cmd, void* cfg, const char* cachesize) {
+  int size;
+  mod_Faidx_svr_cfg* svr
+    = ap_get_module_config(cmd->server->module_config, &faidx_module);
+
+#ifdef DEBUG
+  ap_log_error(APLOG_MARK, APLOG_ERR, 0, cmd->server,
+		   "Checksum directive %s", cachesize);
+#endif
+
+  size = atoi(cachesize);
+  if(size <= 0) {
+    return apr_pstrcat(cmd->pool, cmd->cmd->name,
+		       "cachesize seems to be nonsense, negative?", NULL);
+  }
+
+  files_mgr_resize_cache(svr->files, size);
+
+  return OK;
+
+}
 
 /* Add error reporting?  "Could not load model" etc */
 
