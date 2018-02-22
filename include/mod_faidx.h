@@ -71,6 +71,7 @@ int Faidx_append_or_send(request_rec* r, char* send_ptr, int send_length, int* b
 int Faidx_create_footer(char* buf, int format);
 const int mod_Faidx_create_iterator(request_rec* r, mod_Faidx_svr_cfg* svr, apr_hash_t *formdata, seq_iterator_t** sit);
 seq_iterator_t* iterator_pool_copy(request_rec* r, seq_iterator_t* siterator);
+int metadata_handler(request_rec* r, const char* checksum, checksum_obj* checksum_holder);
 
 static const char* seqfile_section(cmd_parms * cmd, void * _cfg, const char * arg);
 checksum_obj* parse_seq_token(cmd_parms * cmd, char** seqname, char** seq_checksum,  char* args);

@@ -39,7 +39,7 @@ curl -H "Accept: text/x-fasta" http://localhost/faidx/md5/FFFFFFFF
 
 ## TODO
 
-* Missing fai files referred to in the config aren't properly removed from the fai linked list, needs fixing
-* Chunked return type or content-length depending on return size, not implemented yet
+* Chunked return type or content-length depending on return size, not implemented yet, it seems to automatically do chunked, but perhaps set content-length manually if we know it'll be smaller
+* Add support for aliases not associated with checksums, ie 1 -> file:sequence, have to allow a NULL for checksum_obj_ptr in alias_obj
 
 [![Build Status](https://travis-ci.org/lairdm/apache-faidx.svg?branch=master)](https://travis-ci.org/lairdm/apache-faidx) [![Coverage Status](https://coveralls.io/repos/github/lairdm/apache-faidx/badge.svg?branch=master)](https://coveralls.io/github/lairdm/apache-faidx?branch=master)

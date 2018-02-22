@@ -33,7 +33,6 @@ static void mod_Faidx_hooks(apr_pool_t* pool) {
 
 /* pre-init, set some defaults for the linked lists */
 static void* mod_Faidx_svr_conf(apr_pool_t* pool, server_rec* s) {
-  ap_log_error(APLOG_MARK, APLOG_ERR, 0, s, "making server config stuffs");
   /* Create the config object for this module */
   mod_Faidx_svr_cfg* svr = apr_pcalloc(pool, sizeof(mod_Faidx_svr_cfg));
 
@@ -61,8 +60,6 @@ static void* mod_Faidx_svr_conf(apr_pool_t* pool, server_rec* s) {
 
   /* Set the cache size in case the user doesn't set it in the config */
   svr->cachesize = DEFAULT_FILES_CACHE_SIZE;
-
-  ap_log_error(APLOG_MARK, APLOG_ERR, 0, s, "done making server config stuffs");
 
   return svr;
 }
@@ -106,7 +103,6 @@ static int Faidx_handler(request_rec* r) {
   apr_hash_t *formdata = NULL;
   int rv = OK;
   mod_Faidx_svr_cfg* svr = NULL;
-  faidx_t* pFai = NULL;
   char* uri;
   char* uri_ptr;
   int t = UNKNOWN_VERB;
@@ -117,19 +113,15 @@ static int Faidx_handler(request_rec* r) {
   const char* ctype_str;
   int s; /* Content type of submitted POST, reused as sequence fetched */
   int accept;
-  char* sets_verb = "sets";
-  char* locations_verb = "locations/";
   char *key;
-  char *set;
+  char *set; /* In POST section, probably remove after cleanup */
   const char *val;
-  const char *delim = "&";
   char *last;
   unsigned int Loc_count = 1;
-  int translate;
   int location_offset;
   char* loc_str;
   seq_iterator_t* siterator;
-  seq_iterator_t* aiterator; /* iterator from an array push call */
+  seq_iterator_t** aiterator; /* iterator from an array push call */
   apr_array_header_t* location_iterators;
   char* sequence_name = NULL;
   char* send_buf;
@@ -207,10 +199,11 @@ static int Faidx_handler(request_rec* r) {
      iterator.
   */
   if(r->method_number == M_GET) {
+#ifdef DEBUG
     ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, "uri: %s", uri);
+#endif
 
     while(uri[0]) {
-      ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, "uri loop: %s", uri);
       /* Find the first verb in the uri.
 	 uri gets updated to the location after the separator.
       */
@@ -244,8 +237,15 @@ static int Faidx_handler(request_rec* r) {
       return HTTP_NOT_FOUND;
     }
 
+    /* Handle dispatching non-sequence endpoints. Currently we only have
+       metadata, but others could slip in here. */
+    if(t == METADATA_VERB) {
+      return metadata_handler(r, checksum, checksum_holder);
+
+      /* Return here because there's nothing more to do. */
+    }
+
     /* Decode the query string */
-    ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, "decoding query string");
     formdata = parse_form_from_GET(r);
 
     /* Put the checksum information in the formdata, it's just
@@ -263,7 +263,6 @@ static int Faidx_handler(request_rec* r) {
 
     /* And let's send the request off to transform in to a seq iterator */
     siterator = NULL;
-    ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, "creating iterator");
     rv = mod_Faidx_create_iterator(r, svr, formdata, &siterator);
 
     /* If an error condition was returned, bail and send it up the stack */
@@ -277,7 +276,9 @@ static int Faidx_handler(request_rec* r) {
        send back sequence. Make a copy in to the request pool and free the
        malloc'ed one from the external library. */
     *(seq_iterator_t**)apr_array_push(location_iterators) = iterator_pool_copy(r, siterator);
+#ifdef DEBUG
     print_iterator(r, siterator);
+#endif
     tark_free_iterator(siterator);
 
 
@@ -360,8 +361,11 @@ static int Faidx_handler(request_rec* r) {
   /* Loop through the locations, and start sending. We're behaving like
      a type writer, we'll keep filling the send buffer, then flush when
      full. This allows us to chunk if needed or set the content. */
-  while(siterator = *(seq_iterator_t**)apr_array_pop(location_iterators)) {
+  while(aiterator = (seq_iterator_t**)apr_array_pop(location_iterators)) {
+    siterator = *aiterator;
+#ifdef DEBUG
     print_iterator(r, siterator);
+#endif
     location_offset = Faidx_create_header(h_buf, accept, set, siterator->seq_name, siterator->location_str, Loc_count);
     if(location_offset > MAX_HEADER) {
       location_offset = MAX_HEADER;
@@ -373,15 +377,16 @@ static int Faidx_handler(request_rec* r) {
     if( Faidx_append_or_send( r, h_buf, location_offset, &buf_remaining, &send_buf_cur, 0 ) ) {
       flushed = 1;
     }
-    ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, "1");
 
     /* Go through the iterators and start fetching sequence,
        sending chunks to the user if we fill up the buffer. */
-    while(tark_iterator_remaining(siterator, translate) > 0) {
-    ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, "loop");
+    while(tark_iterator_remaining(siterator, siterator->translate) > 0) {
       s = buf_remaining;
 
-      if(translate == 1) {
+      if(siterator->translate == 1) {
+#ifdef DEBUG
+	print_iterator(r, siterator);
+#endif
 	tark_iterator_fetch_translated_seq( siterator, &s, send_buf_cur );
       } else {
 	tark_iterator_fetch_seq( siterator, &s, send_buf_cur );
@@ -400,12 +405,10 @@ static int Faidx_handler(request_rec* r) {
       }
 
     }
-    ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, "out of loop");
 
     Loc_count++;
 
   } /* end iterator while */
-    ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, "out of loop 2");
 
   /* Make footer if needed (JSON) and append to send buffer */
   /* Flush the buffer of last chars. If flushed == 0, we never
@@ -597,18 +600,18 @@ const int mod_Faidx_create_iterator(request_rec* r, mod_Faidx_svr_cfg* svr, apr_
     strand = 1;
   } else {
     strand = atoi(str);
-    if((strand != 1) || (strand != -1)) return HTTP_BAD_REQUEST;
+    if((strand != 1) && (strand != -1)) return HTTP_BAD_REQUEST;
   }
 
   if(apr_hash_get(formdata, "range", APR_HASH_KEY_STRING)) {
     ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, "RANGE");
     locs = apr_psprintf(r->pool, "%s:%d", (char*)apr_hash_get(formdata, "range", APR_HASH_KEY_STRING), strand);
   }
-    ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, "POST RANGE");
 
   if(apr_hash_get(formdata, "start", APR_HASH_KEY_STRING) || apr_hash_get(formdata, "end", APR_HASH_KEY_STRING)) {
     apr_table_setn(r->headers_out, "Accept-Ranges", "none"); /* If we have query parameters, deny Range requests */
     if(locs != NULL) {
+      ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, "User specified range and start or end");
       /* If locs isn't NULL, it means we have a Range from above, that's an error */
       return HTTP_BAD_REQUEST;
     }
@@ -661,8 +664,12 @@ const int mod_Faidx_create_iterator(request_rec* r, mod_Faidx_svr_cfg* svr, apr_
     siterator->translate = 0;
   } else {
     strand = atoi(str);
-    if((strand != 1) || (strand != 0)) {
+    if((strand != 1) && (strand != 0)) {
       tark_free_iterator(siterator);
+#ifdef DEBUG
+      ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
+		    "Translate param, bad value %s, %d", str, strand);
+#endif
       return HTTP_BAD_REQUEST;
     }
     siterator->translate = strand;
@@ -670,7 +677,6 @@ const int mod_Faidx_create_iterator(request_rec* r, mod_Faidx_svr_cfg* svr, apr_
 
   /* Copy over the address of the iterator */
   *sit = siterator;
-      ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, "END create iterator");
 
   return OK;
 }
@@ -692,6 +698,38 @@ seq_iterator_t* iterator_pool_copy(request_rec* r, seq_iterator_t* siterator) {
   aiterator->location_str = apr_pstrdup(r->pool, siterator->location_str);
 
   return aiterator;
+}
+
+int metadata_handler(request_rec* r, const char* checksum, checksum_obj* checksum_holder) {
+  mod_Faidx_svr_cfg* svr = NULL;
+  seq_file_t* seqfile;
+
+  svr = ap_get_module_config(r->server->module_config, &faidx_module);
+  seqfile = files_mgr_use_seqfile(svr->files, checksum_holder->file);
+
+
+  /* Abstraction needed here if we ever want to support different sequence backends */
+  int i = faidx_seq_len((faidx_t*)seqfile->file_ptr, checksum_holder->sequence->name);
+
+  /* Start JSON header */
+  ap_rputs( "{\n  \"metadata\" : {\n", r );
+
+  ap_rprintf( r, "    \"id\" : \"%s\",\n", checksum );
+  ap_rprintf( r, "    \"length\" : %d,\n", i );
+
+  ap_rputs( "    \"aliases\" : [\n", r );
+
+  for(i = 0; i < checksum_holder->sequence->aliases->nelts; i++) {
+    if(i > 0) {
+      ap_rputs( ",\n", r );
+    }
+    alias_obj* a = ((alias_obj**)checksum_holder->sequence->aliases->elts)[i];
+    ap_rprintf( r, "      {\n        \"alias\" : \"%s\"\n      }", a->alias );
+  }
+
+  ap_rputs( "\n    ]\n  }\n}\n", r );
+
+  return OK;
 }
 
 /* 
@@ -720,8 +758,6 @@ static const char* seqfile_section(cmd_parms * cmd, void * dummy, const char * a
   /* Cast the module config for convenience */
   mod_Faidx_svr_cfg* cfg = ap_get_module_config(cmd->server->module_config, &faidx_module);
 
-  ap_log_error(APLOG_MARK, APLOG_ERR, 0, cmd->server, "IN seqfile_section");
-
   /* Find the argument on the <seqfile > line */
   endp = ap_strrchr_c(arg, '>');
   if(endp == NULL) {
@@ -742,12 +778,10 @@ static const char* seqfile_section(cmd_parms * cmd, void * dummy, const char * a
   file = ap_getword_conf(cmd->temp_pool, &arg);
 
   /* Check for a duplicate, if we've seen this seqfile before, ignore the entire block */
-  ap_log_error(APLOG_MARK, APLOG_ERR, 0, cmd->server, "file in seqfile_section: %s", file);
   if(files_mgr_lookup_file(cfg->files, file) != NULL) {
 	ap_log_error(APLOG_MARK, APLOG_WARNING, 0, cmd->server, "Warning, seqfile %s has been seen before, ignoring", file);
 	return NULL;
   }
-  ap_log_error(APLOG_MARK, APLOG_ERR, 0, cmd->server, "HERE IN seqfile_section");
 
   checksum = files_mgr_add_seqfile(cfg->files, file, FM_FAIDX);
       files_mgr_print_md5(checksum);
@@ -764,7 +798,6 @@ static const char* seqfile_section(cmd_parms * cmd, void * dummy, const char * a
 		       "We couldn't initialize seqfile ", file, NULL);
   }
 
-  ap_log_error(APLOG_MARK, APLOG_ERR, 0, cmd->server, "FURTHER IN seqfile_section");
   /* Now we start to go through the config file finding directives */
   while(!ap_cfg_getline(line, MAX_STRING_LEN, cmd->config_file)) {
     line_no++;
@@ -779,7 +812,6 @@ static const char* seqfile_section(cmd_parms * cmd, void * dummy, const char * a
       /* We're done, return */
       return NULL;
     }
-    ap_log_error(APLOG_MARK, APLOG_ERR, 0, cmd->server, "rest of line: %s", ptr);
 
     if( !strcasecmp(first, SEQ_DIRECTIVE) ) {
       /* We've found a sequence checksum, parse and add it */
@@ -794,8 +826,6 @@ static const char* seqfile_section(cmd_parms * cmd, void * dummy, const char * a
       /* Add the checksum object to the sequence, this creates all the linkages between
          a checksum object and the sequence. It also creates the corresponding entry in
          the aliases list for the sequence. */
-      files_mgr_print_md5(checksum_holder->file);
-      fprintf(stderr, "seqname: %s\n", seqname);
       rv = files_mgr_add_checksum(cfg->files, checksum_holder, seq_checksum, seqname);
       if(rv != APR_SUCCESS) {
 	return apr_psprintf(cmd->pool, "Seq %s not found in Seqfile %s", seqname, file);
@@ -833,7 +863,6 @@ checksum_obj* parse_seq_token(cmd_parms * cmd, char** seqname, char** seq_checks
 
   if(*args == '\0') return NULL; /* No arguments? That's an error! */
   *seqname = ap_getword_conf_nc(cmd->temp_pool, &args);
-  fprintf(stderr, "fucking seqname: %s\n", *seqname);
 
   if(*args == '\0') return NULL; /* No more arguments? That's an error! */
   checksum_type = ap_getword_conf_nc(cmd->temp_pool, &args);
@@ -862,7 +891,6 @@ static int mod_Faidx_hook_post_config(apr_pool_t *pconf, apr_pool_t *plog,
   void *data = NULL;
   const char *userdata_key = "shm_counter_post_config";
   int result;
-  ap_log_error(APLOG_MARK, APLOG_ERR, 0, s, "post config hook");
 
  /* We don't support threaded MPMs, as htslib is not thread safe.
     So die immediately on trying to configure the module.
@@ -934,8 +962,10 @@ static int mod_Faidx_hook_post_config(apr_pool_t *pconf, apr_pool_t *plog,
 
 static apr_status_t Faidx_cleanup_fais(void* server_cfg) {
 
+#ifdef DEBUG
   ap_log_error(APLOG_MARK, APLOG_ERR, 0, NULL,
 	       "Cleaning up files manager");
+#endif
 
   destroy_files_mgr(((mod_Faidx_svr_cfg*)server_cfg)->files);
 

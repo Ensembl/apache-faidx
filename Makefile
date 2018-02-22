@@ -58,5 +58,5 @@ fetcher_test: $(DRIVER_C)
 	gcc -L/home/lairdm/src/htslib -I/home/lairdm/src/htslib -Wl,-rpath=/home/lairdm/src/htslib -o $@ $^ -lhts -lz
 
 clean:
-	rm -rf *.o *.so *.lo *.slo *.la .libs
+	rm -rf *.o *.so *.lo *.slo *.la *.a .libs
 	cd test && $(MAKE) clean
