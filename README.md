@@ -15,11 +15,14 @@ sequence_cachesize 100
 <SeqFile /faidx/files/Homo_sapiens.GRCh38.dna.toplevel.fa.gz>
   Seq 1 md5 FFFFFFFF
   Seq 2 md5 EEEEEEEE
+  Alias 1 1
+  Alias 1 chr1
 </SeqFile>
 
 <SeqFile /faidx/files/Felis_catus.Felis_catus_6.2.dna.fa>
   Seq 1 md5 CCCCCCCC
   Seq 2 sha256 BB61EF40814CE34C1EDF0EDB609854BE9793198A8F60B67D9FB26643C32281D3
+  Alias 1 chr1
 </SeqFile>
 
 <Location /faidx>

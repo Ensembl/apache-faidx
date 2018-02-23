@@ -767,6 +767,7 @@ static const char* seqfile_section(cmd_parms * cmd, void * dummy, const char * a
   checksum_obj* checksum_holder;
   int line_no = 0;
   int rv;
+  char* return_str;
   char line[MAX_STRING_LEN]; /* expected by ap_cfg_getline */
   /* Cast the module config for convenience */
   mod_Faidx_svr_cfg* cfg = ap_get_module_config(cmd->server->module_config, &faidx_module);
@@ -856,6 +857,18 @@ static const char* seqfile_section(cmd_parms * cmd, void * dummy, const char * a
       if(apr_hash_get(cfg->labels, checksum_holder->checksum_type, APR_HASH_KEY_STRING) == NULL) {
 	apr_hash_set(cfg->labels, apr_pstrdup(cmd->pool, checksum_holder->checksum_type), APR_HASH_KEY_STRING, apr_pstrdup(cmd->pool, "1"));
       }
+    } else if( !strcasecmp(first, ALIAS_DIRECTIVE) ) {
+      return_str = parse_alias_token(cmd, &seqname, &seq_checksum, ptr);
+
+      if(return_str != NULL) {
+	return return_str;
+      }
+
+      rv = files_mgr_add_alias(cfg->files, checksum, seqname, seq_checksum);
+
+      if(rv != APR_SUCCESS) {
+	apr_psprintf(cmd->pool, "Seq %s not found in Seqfile %s", seqname, file);
+      }
     }
   }
 
@@ -891,6 +904,25 @@ checksum_obj* parse_seq_token(cmd_parms * cmd, char** seqname, char** seq_checks
   checksum_holder->checksum_type = apr_pstrdup(cmd->pool, checksum_type);
 
   return checksum_holder;
+}
+
+char* parse_alias_token(cmd_parms * cmd, char** seqname, char** alias,  char* args) {
+
+  /* We're going to need to pop the arguments off one by one and in between
+     check we still have more arguments. With each call to ap_getword_conf_nc
+     args is set to the next word or the trailing \0 of the string if we're at
+     the end.
+   */
+
+  if(*args == '\0') return apr_psprintf(cmd->pool, "Alias directive with no parameters"); /* No arguments? That's an error! */
+  *seqname = ap_getword_conf_nc(cmd->temp_pool, &args);
+
+  if(*args == '\0') return apr_psprintf(cmd->pool, "Alias for sequence %s has no value", *seqname); /* No more arguments? That's an error! */
+  *alias = ap_getword_conf_nc(cmd->temp_pool, &args);
+
+  if(*args) return apr_psprintf(cmd->pool, "Alias %s %s has extra parameters", *seqname, *alias); /* More arguments? Oh, you better believe that's an error. */
+
+  return NULL;
 }
 
 static const char* modFaidx_init_cachesize(cmd_parms* cmd, void* cfg, const char* cachesize) {

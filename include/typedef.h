@@ -38,6 +38,7 @@
 #define SEQFILE_CACHESIZE_DIRECTIVE "sequence_cachesize"
 #define LABELS_ENDPOINT_DIRECTIVE "sequence_enable_labels"
 #define SEQ_DIRECTIVE "seq"
+#define ALIAS_DIRECTIVE "alias"
 
 #define BEGIN_SEQFILE "<SeqFile"
 #define END_SEQFILE "</SeqFile>"

@@ -76,6 +76,7 @@ int metadata_handler(request_rec* r, const char* checksum, checksum_obj* checksu
 
 static const char* seqfile_section(cmd_parms * cmd, void * _cfg, const char * arg);
 checksum_obj* parse_seq_token(cmd_parms * cmd, char** seqname, char** seq_checksum,  char* args);
+char* parse_alias_token(cmd_parms * cmd, char** seqname, char** alias,  char* args);
 static const char* modFaidx_init_cachesize(cmd_parms* cmd, void* cfg, const char* cachesize);
 
 static apr_hash_t *parse_form_from_string(request_rec *r, char *args);

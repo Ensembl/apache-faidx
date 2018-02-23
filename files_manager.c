@@ -188,7 +188,7 @@ int files_mgr_add_checksum(files_mgr_t* fm, checksum_obj* checksum_holder, char*
   }
 
   /* Create and insert the alias object */
-  alias = files_mgr_add_alias(fm, seq);
+  alias = _files_mgr_create_alias(fm, seq);
   alias->alias = (const char*)apr_pstrdup(mp, checksum);
   alias->checksum = checksum_holder;
 
@@ -201,7 +201,7 @@ int files_mgr_add_checksum(files_mgr_t* fm, checksum_obj* checksum_holder, char*
 /* Add a new entry to the aliases array in a sequence, create that array
    if needed too.
  */
-alias_obj* files_mgr_add_alias(files_mgr_t* fm, sequence_obj* seq) {
+alias_obj* _files_mgr_create_alias(files_mgr_t* fm, sequence_obj* seq) {
   apr_pool_t *mp;
   alias_obj *alias;
 
@@ -216,6 +216,37 @@ alias_obj* files_mgr_add_alias(files_mgr_t* fm, sequence_obj* seq) {
   *(alias_obj**)apr_array_push(seq->aliases) = alias;
 
   return alias;
+}
+
+/* Add an alias to a sequence, these are just alternate names that aren't
+  available to fetch the sequence via. They'll only appear in the metadata endpoint. */
+int files_mgr_add_alias(files_mgr_t* fm, const unsigned char* seqfile_md5, char* seqname, char* alias_name) {
+  apr_pool_t *mp;
+  alias_obj *alias;
+  sequence_obj *seq;
+  seq_file_t *seqfile;
+
+  mp = fm->mp;
+
+  /* First we get the seqfile associated with this checksum */
+  seqfile = files_mgr_get_seqfile(fm, seqfile_md5);
+
+  if(!seqfile) { /* We can't find the seqfile with this checksum */
+    return APR_NOTFOUND;
+  }
+
+  seq = apr_hash_get(seqfile->sequences, seqname, APR_HASH_KEY_STRING);
+
+  if(!seq) { /* We can't find that sequence in the seqfile */
+    return APR_NOTFOUND;
+  }
+
+  /* Create and insert the alias object */
+  alias = _files_mgr_create_alias(fm, seq);
+  alias->alias = (const char*)apr_pstrdup(mp, alias_name);
+  alias->checksum = NULL;
+
+  return APR_SUCCESS;
 }
 
 /* Attempt to open the seqfile and scan through all the sequences

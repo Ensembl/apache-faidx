@@ -73,7 +73,8 @@ seq_file_t* files_mgr_use_seqfile(files_mgr_t* fm, const unsigned char* seqfile_
 seq_file_t* files_mgr_lookup_file(files_mgr_t* fm, char* path);
 const unsigned char* files_mgr_add_seqfile(files_mgr_t* fm, char* path, int type);
 int files_mgr_add_checksum(files_mgr_t* fm, checksum_obj* checksum_holder, char* checksum, char* seqname);
-alias_obj* files_mgr_add_alias(files_mgr_t* fm, sequence_obj* seq);
+alias_obj* _files_mgr_create_alias(files_mgr_t* fm, sequence_obj* seq);
+int files_mgr_add_alias(files_mgr_t* fm, const unsigned char* seqfile_md5, char* seqname, char* alias);
 int _files_mgr_init_seqfile(files_mgr_t* fm, seq_file_t *seqfile);
 int _files_mgr_init_faidx_file(files_mgr_t* fm, seq_file_t *seqfile);
 int files_mgr_open_file(files_mgr_t* fm, seq_file_t *seqfile);
