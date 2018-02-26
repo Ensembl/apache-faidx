@@ -29,6 +29,9 @@ apmodule_debug:
 apmodule_coveralls:
 	apxs2 -DDEBUG=1 -c -L$(HTSLIB_DIR) -I$(HTSLIB_DIR) -I$(INCDIR) -Wl,-rpath=$(HTSLIB_DIR) "-Wc,-g -O0 --coverage" $(LDLIBS) -lgcov mod_faidx.c htslib_fetcher.c files_manager.c
 
+config_builder: $(DEPS)
+	cd config_builder && $(MAKE) config_builder
+
 install: apmodule
 	apxs2 -i -n faidx .libs/mod_faidx.so
 
@@ -41,6 +44,8 @@ $(TARGET_LIB): $(LIB_OBJS)
 test: check
 check: $(DEPS)
 	cd test && $(MAKE) test
+
+.PHONY: config_builder check
 
 OBJS = files_manager.o htslib_fetcher.o
 DRIVER_OBJ = fetcher_driver.o htslib_fetcher.o
@@ -60,3 +65,4 @@ fetcher_test: $(DRIVER_C)
 clean:
 	rm -rf *.o *.so *.lo *.slo *.la *.a .libs
 	cd test && $(MAKE) clean
+	cd config_builder && $(MAKE) clean
