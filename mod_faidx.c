@@ -28,7 +28,7 @@ static void mod_Faidx_hooks(apr_pool_t* pool) {
   ap_hook_handler(Faidx_handler, NULL, NULL, APR_HOOK_MIDDLE) ;
 
   ap_hook_post_config(mod_Faidx_hook_post_config,
-		      NULL, NULL, APR_HOOK_FIRST);
+      NULL, NULL, APR_HOOK_FIRST);
 }
 
 /* pre-init, set some defaults for the linked lists */
@@ -121,6 +121,11 @@ static int Faidx_handler(request_rec* r) {
   int buf_remaining;
   int flushed = 0;
 
+#ifdef DEBUG
+      ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
+		    "We're handling a request");
+#endif
+
   svr
     = ap_get_module_config(r->server->module_config, &faidx_module);
   if(svr == NULL) {
@@ -137,11 +142,6 @@ static int Faidx_handler(request_rec* r) {
   if ( (r->method_number != M_GET) && (r->method_number != M_POST) ) {
     return HTTP_METHOD_NOT_ALLOWED ;  /* Reject other methods */
   }
-
-#ifdef DEBUG
-      ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
-		    "We're handling a request");
-#endif
 
   /* We only speak fasta, plain text or json,
      unless you ask for fasta or text,
@@ -566,7 +566,7 @@ int Faidx_create_end(char* buf, int format) {
   if(format == CONTENT_JSON) {
     /* Close the JSON */
     sent = snprintf( buf, remaining, "\n]\n");
-  } else {
+  } else if(format == CONTENT_FASTA) {
     /* Ensure the buffer is cleared if we're not writing to it */
     sent = snprintf( buf, remaining, "\n");
   }
@@ -798,7 +798,11 @@ static const char* seqfile_section(cmd_parms * cmd, void * dummy, const char * a
   }
 
   checksum = files_mgr_add_seqfile(cfg->files, file, FM_FAIDX);
-      files_mgr_print_md5(checksum);
+
+#ifdef DEBUG
+  files_mgr_print_md5(checksum);
+  ap_log_error(APLOG_MARK, APLOG_WARNING, 0, cmd->server, "added file %s, checksum %s", file, checksum);
+#endif
 
   /* This is also where the file type could go in, as a (optional?) second argument */
   trim(arg);
@@ -1018,9 +1022,6 @@ static int mod_Faidx_hook_post_config(apr_pool_t *pconf, apr_pool_t *plog,
      needed for graceful reloads to not leak memory */
   apr_pool_cleanup_register(pconf, svr, &Faidx_cleanup_fais, apr_pool_cleanup_null);
 
-  /* Resize the cache */
-  files_mgr_resize_cache(svr->files, svr->cachesize);
-
   return 0;
 }
 
@@ -1033,7 +1034,7 @@ static apr_status_t Faidx_cleanup_fais(void* server_cfg) {
 	       "Cleaning up files manager");
 #endif
 
-  destroy_files_mgr(((mod_Faidx_svr_cfg*)server_cfg)->files);
+  files_mgr_close_all(((mod_Faidx_svr_cfg*)server_cfg)->files);
 
   return APR_SUCCESS;
 }

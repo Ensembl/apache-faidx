@@ -460,18 +460,7 @@ int files_mgr_close_file(files_mgr_t* fm, seq_file_t *seqfile) {
   return APR_SUCCESS;
 }
 
-/* Destroy a files manager and deallocate all associated memory
-
-   Our course of action should be to iterate through the hash,
-   for each element close any associated file or connection.
-   Then because we use our own memory pool to allocate all the
-   structures we can simply destroy that pool to destroy
-   everything else.
-
-   This destructor will also free the files manager control object,
-   the caller should assume the pointer they passed in is now invalid. */
-
-void destroy_files_mgr(files_mgr_t* fm) {
+void files_mgr_close_all(files_mgr_t* fm) {
   apr_hash_index_t *hi;
   seq_file_t *seqfile;
   apr_pool_t *mp;
@@ -485,6 +474,28 @@ void destroy_files_mgr(files_mgr_t* fm) {
     files_mgr_close_file(fm, seqfile); /* Try and close the associated file or
 				       connection, if open */
   }
+
+}
+
+/* Destroy a files manager and deallocate all associated memory
+
+   Our course of action should be to iterate through the hash,
+   for each element close any associated file or connection.
+   Then because we use our own memory pool to allocate all the
+   structures we can simply destroy that pool to destroy
+   everything else.
+
+   This destructor will also free the files manager control object,
+   the caller should assume the pointer they passed in is now invalid. */
+
+void destroy_files_mgr(files_mgr_t* fm) {
+  apr_pool_t *mp;
+
+  /* Grab our memory pool */
+  mp = fm->mp;
+
+  /* Close all the open files in the cache */
+  files_mgr_close_all(fm);
 
   /* Free the memory pool */
   apr_pool_destroy(mp);

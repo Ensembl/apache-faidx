@@ -83,6 +83,7 @@ int files_mgr_resize_cache(files_mgr_t* fm, int new_cache_size);
 int _files_mgr_insert_cache(files_mgr_t* fm, seq_file_t *seqfile);
 int _files_mgr_remove_from_cache(files_mgr_t* fm, seq_file_t *seqfile);
 int files_mgr_close_file(files_mgr_t* fm, seq_file_t *seqfile);
+void files_mgr_close_all(files_mgr_t* fm);
 void destroy_files_mgr(files_mgr_t* fm);
 
 /* Debugging functions */
