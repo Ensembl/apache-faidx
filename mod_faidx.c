@@ -532,7 +532,7 @@ int Faidx_create_header(char* buf, int format, char* set, char* seq_name, char* 
       buf += sent;
     }
 
-    sent += snprintf( buf, remaining, "  {\n    \"checksum\": \"%s\"\n    \"location\": \"%s:%s\"\n    \"seq\": \"",
+    sent += snprintf( buf, remaining, "  {\n    \"checksum\": \"%s\",\n    \"location\": \"%s:%s\",\n    \"seq\": \"",
 		      set,
 		      seq_name,
 		      location);
