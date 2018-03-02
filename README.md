@@ -49,8 +49,7 @@ curl -H "Accept: text/x-fasta" http://localhost/faidx/FFFFFFFF
 ## TODO
 
 * Chunked return type or content-length depending on return size, not implemented yet, it seems to automatically do chunked, but perhaps set content-length manually if we know it'll be smaller
-* Add support for aliases not associated with checksums, ie 1 -> file:sequence, have to allow a NULL for checksum_obj_ptr in alias_obj
-* Labels (/md5/<checksum>/) not implemented, and the ap_set_flag_slot causes a segfault if used, might have to implement as a function call type directive
+* Labels (/md5/\<checksum\>/) not implemented, and the ap_set_flag_slot causes a segfault if used, might have to implement as a function call type directive
 * Rewrite htslib_fetcher.c to use static buffers for the faidx fetching rather than malloc to protect against memory leaks
 
 [![Build Status](https://travis-ci.org/Ensembl/apache-faidx.svg?branch=master)](https://travis-ci.org/Ensembl/apache-faidx) [![Coverage Status](https://coveralls.io/repos/github/Ensembl/apache-faidx/badge.svg?branch=master)](https://coveralls.io/github/Ensembl/apache-faidx?branch=master)
