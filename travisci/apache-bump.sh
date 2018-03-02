@@ -8,8 +8,10 @@ ls -l ${APACHE_FAIDX_DIR}/.libs/
 sudo chmod 666 /var/log/apache2/error.log
 sudo chmod 666 /var/log/apache2/other_vhosts_access.log
 sudo chmod 666 /var/log/apache2/access.log
+sudo chmod 666 /var/log/apache2/error.log
 sudo chmod 666 /var/run/apache2/apache2.pid
 sudo chmod 777 /var/run/apache2/
+sudo chmod 777 /var/log/apache2/
 sudo sed -i -e 's@80@8000@g' /etc/apache2/ports.conf
 sudo sed -i -e 's@/var/log/apache2@/tmp@g' /etc/apache2/envvars
 sudo sed -i -e 's@/var/lock/apache2@/tmp@g' /etc/apache2/envvars
