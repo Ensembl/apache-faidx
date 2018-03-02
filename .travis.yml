@@ -54,7 +54,7 @@ install:
 
 script:
   - if [[ "$COVERALLS" == "true" ]]; then bash ${APACHE_FAIDX_DIR}/travisci/apache-bump.sh; fi
-  - python test/api_test.py
+  - if [[ "$COVERALLS" == "false" ]]; python test/api_test.py; fi
 
 after_success:
 #  - if [[ "$COVERALLS" == "true" ]]; then sudo pkill --signal HUP apache2; fi
