@@ -49,14 +49,14 @@ sudo sync
 sleep 5
 ls -l ${APACHE_FAIDX_DIR}/.libs/
 
-exit
+exit 0
 
 (sudo sh -c '. /etc/apache2/envvars; /usr/sbin/apache2 -X')&
 sleep 1
 
 echo "Apache started"
 ps auxww|grep [a]pache2
-curl "http://localhost/faidx/locations/human/"
+curl "http://localhost/faidx/metadata/2648ae1bacce4ec4b6cf337dcae37816"
 
 echo "Killing apache"
 sudo pkill -n --signal HUP apache2
