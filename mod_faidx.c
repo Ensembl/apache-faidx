@@ -216,7 +216,7 @@ static int Faidx_handler(request_rec* r) {
     if(checksum == NULL) {
       ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
 		    "No checksum found in URI");
-      return HTTP_BAD_REQUEST;
+      return HTTP_NOT_FOUND;
     }
 
     /* Get the checksum we're going to be working on */
@@ -628,22 +628,33 @@ const int mod_Faidx_create_iterator(request_rec* r, mod_Faidx_svr_cfg* svr, apr_
 
     str = apr_hash_get(formdata, "start", APR_HASH_KEY_STRING);
     if(str == NULL) {
-      start = 1;
+      start = 0;
     } else {
       start = atoi(str);
     }
 
     str = apr_hash_get(formdata, "end", APR_HASH_KEY_STRING);
     if(str == NULL) {
-      end = faidx_seq_len((faidx_t*)seqfile->file_ptr, checksum_holder->sequence->name) - 1;
+      end = faidx_seq_len((faidx_t*)seqfile->file_ptr, checksum_holder->sequence->name);
     } else {
       end = atoi(str);
+    }
+
+    /* Special case, in zero based coordinates chr1:4-4 is an
+       empty sequence. Return an error. */
+    if(start == end) {
+      return HTTP_BAD_REQUEST;
+    }
+
+    /* We don't support circular chromosomes */
+    if(start > end) {
+      return HTTP_BAD_REQUEST;
     }
 
     ensembl_coords = 1;
     locs = apr_psprintf(r->pool, "%d-%d:%d", start, end, strand);
   }
-  
+
   siterator = tark_fetch_iterator((faidx_t*)seqfile->file_ptr, 
 				  checksum_holder->sequence->name,
 				  locs,
@@ -717,9 +728,10 @@ int metadata_handler(request_rec* r, const char* checksum, checksum_obj* checksu
   mod_Faidx_svr_cfg* svr = NULL;
   seq_file_t* seqfile;
 
+  ap_set_content_type(r, "application/json");
+
   svr = ap_get_module_config(r->server->module_config, &faidx_module);
   seqfile = files_mgr_use_seqfile(svr->files, checksum_holder->file);
-
 
   /* Abstraction needed here if we ever want to support different sequence backends */
   int i = faidx_seq_len((faidx_t*)seqfile->file_ptr, checksum_holder->sequence->name);

@@ -22,20 +22,8 @@ sleep 2
 ps auxww|grep [a]pache2
 
 # Batch one of calls
-curl "http://localhost:8000/faidx?set=human&location=1%3A1000-2000"
-curl "http://localhost:8000/faidx?set=human&location=Y%3A1000-2000"
-curl -H "Accept: text/x-fasta" "http://localhost:8000/faidx?set=human&location=1%3A1000-2000"
-curl -H 'Content-type: application/json' -X POST -d '{"location": ["1:1000-2000", "1:3000-3500"], "set": "human"}' http://localhost:8000/faidx/
-curl -H 'Content-type: application/json' -H "Accept: text/x-fasta" -X POST -d '{"location": ["1:1000-2000", "1:3000-3500"], "set": "human"}' http://localhost:8000/faidx/
-curl -H 'Accept: application/json' -X POST -d 'set=human&location=1%3A1000-5000' http://localhost:8000/faidx/
-curl -H "Accept: text/x-fasta" -H 'Accept: application/json' -X POST -d 'set=human&location=1%3A1000-5000' http://localhost:8000/faidx/
-curl "http://localhost:8000/faidx/sets"
-curl "http://localhost:8000/faidx/locations/cat/"
-curl "http://localhost:8000/faidx/locations/human/"
-curl -X HEAD "http://localhost:8000/faidx/locations/human/"
-curl "http://localhost:8000/faidx/locations/mouse/"
-curl -H "Accept: text/x-fasta" "http://localhost:8000/faidx?location=1%3A1000-2000"
-curl -H "Accept: text/x-fasta" "http://localhost:8000/faidx?set=human"
+python ../test/api_test.py
+rc=$?; if [[ $rc != 0 ]]; then exit $rc; fi
 
 apachectl -k graceful
 sudo sync
@@ -43,19 +31,8 @@ sleep 2
 ls -l ${APACHE_FAIDX_DIR}/.libs/
 
 # Batch two of calls
-curl "http://localhost:8000/faidx?set=human&location=1%3A1000-2000"
-curl -H "Content-type: text/x-fasta" "http://localhost:8000/faidx?set=human&location=1%3A1000-2000"
-curl -H 'Content-type: application/json' -X POST -d '{"location": ["1:1000-2000", "1:3000-3500"], "set": "human"}' http://localhost:8000/faidx/
-curl -H 'Content-type: application/json' -H "Accept: text/x-fasta" -X POST -d '{"location": ["1:1000-2000", "1:3000-3500"], "set": "human"}' http://localhost:8000/faidx/
-curl -H 'Accept: application/json' -X POST -d 'set=human&location=1%3A1000-5000' http://localhost:8000/faidx/
-curl -H "Accept: text/x-fasta" -H 'Accept: application/json' -X POST -d 'set=human&location=1%3A1000-5000' http://localhost:8000/faidx/
-curl "http://localhost:8000/faidx/sets"
-curl "http://localhost:8000/faidx/locations/cat/"
-curl "http://localhost:8000/faidx/locations/human/"
-curl -X HEAD "http://localhost:8000/faidx/locations/human/"
-curl "http://localhost:8000/faidx/locations/mouse/"
-curl -H "Accept: text/x-fasta" "http://localhost:8000/faidx?location=1%3A1000-2000"
-curl -H "Accept: text/x-fasta" "http://localhost:8000/faidx?set=human"
+python ../test/api_test.py
+rc=$?; if [[ $rc != 0 ]]; then exit $rc; fi
 
 apachectl -k graceful
 sudo sync
@@ -63,19 +40,8 @@ sleep 2
 ls -l ${APACHE_FAIDX_DIR}/.libs/
 
 # Batch three of calls
-curl "http://localhost:8000/faidx?set=human&location=1%3A1000-2000"
-curl -H "Content-type: text/x-fasta" "http://localhost:8000/faidx?set=human&location=Y%3A1000-2000"
-curl -H 'Content-type: application/json' -X POST -d '{"location": ["1:1000-2000", "1:3000-3500"], "set": "human"}' http://localhost:8000/faidx/
-curl -H 'Content-type: application/json' -H "Accept: text/x-fasta" -X POST -d '{"location": ["1:1000-2000", "1:3000-3500"], "set": "human"}' http://localhost:8000/faidx/
-curl -H 'Accept: application/json' -X POST -d 'set=human&location=1%3A1000-5000' http://localhost:8000/faidx/
-curl -H "Accept: text/x-fasta" -H 'Accept: application/json' -X POST -d 'set=human&location=1%3A1000-5000' http://localhost:8000/faidx/
-curl "http://localhost:8000/faidx/sets"
-curl "http://localhost:8000/faidx/locations/cat/"
-curl "http://localhost:8000/faidx/locations/human/"
-curl -X HEAD "http://localhost:8000/faidx/locations/human/"
-curl "http://localhost:8000/faidx/locations/mouse/"
-curl -H "Accept: text/x-fasta" "http://localhost:8000/faidx?location=1%3A1000-2000"
-curl -H "Accept: text/x-fasta" "http://localhost:8000/faidx?set=human"
+python ../test/api_test.py
+rc=$?; if [[ $rc != 0 ]]; then exit $rc; fi
 
 # Stop apache so it writes out the coverall output
 apachectl -k stop

@@ -750,12 +750,12 @@ seq_iterator_t* tark_fetch_iterator(faidx_t* fai, const char *seq_name, const ch
   for(k--; k>=0; k--) {
     if(s[k] == '-') {
       end = atoi(s + k + 1);
-      if (end > 0 && ensembl_coords) --end;
+      if (end > 0) --end;
       s[k] = 0;
     } else if(s[k] == ',' || k == 0) {
       if( k == 0 ) k--; // Correct k for the last iteration so the ptr addition works
       beg = atoi(s + k + 1);
-      if (beg > 0 && ensembl_coords) --beg;
+      if (beg > 0 && !ensembl_coords) --beg;
       s[k] = 0;
 
       // Start must be less than end and

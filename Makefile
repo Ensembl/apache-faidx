@@ -32,7 +32,7 @@ apmodule_coveralls:
 config_builder: $(DEPS)
 	cd config_builder && $(MAKE) config_builder
 
-install: apmodule
+install: apmodule_debug
 	apxs2 -i -n faidx .libs/mod_faidx.so
 
 lib: $(TARGET_LIB)
