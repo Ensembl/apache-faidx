@@ -16,7 +16,6 @@ DEPS = $(wildcard $INCDIR/*.h) $(TARGET_LIB)
 
 %.o: %.c $(DEPS) %.h
 	$(CC) -fPIC -L$(HTSLIB_DIR) $(CFLAGS) -Wl,-rpath=$(HTSLIB_DIR) -c -o $@ $<
-	$(CC) -fPIC -DDEFAULT_FILES_CACHE_SIZE=1 -L$(HTSLIB_DIR) $(CFLAGS) -Wl,-rpath=$(HTSLIB_DIR) -g -c -o test/$@ $<
 
 all:
 
@@ -32,7 +31,7 @@ apmodule_coveralls:
 config_builder: $(DEPS)
 	cd config_builder && $(MAKE) config_builder
 
-install: apmodule_debug
+install: apmodule
 	apxs2 -i -n faidx .libs/mod_faidx.so
 
 lib: $(TARGET_LIB)
@@ -46,21 +45,6 @@ check: $(DEPS)
 	cd test && $(MAKE) test
 
 .PHONY: config_builder check
-
-OBJS = files_manager.o htslib_fetcher.o
-DRIVER_OBJ = fetcher_driver.o htslib_fetcher.o
-DRIVER_ITER_OBJ = fetcher_iter_driver.o htslib_fetcher.o
-DEPS = htslib_fetcher.h
-DRIVER_C = htslib_fetcher.c fetcher_driver.c
-
-fetcher_driver: $(DRIVER_OBJ)
-	gcc -L$(HTSLIB_DIR) -I$(HTSLIB_DIR) -Wl,-rpath=$(HTSLIB_DIR) -o $@ $^ -lhts -lz 
-
-fetcher_iter_driver: $(DRIVER_ITER_OBJ)
-	gcc -L$(HTSLIB_DIR) -I$(HTSLIB_DIR) -Wl,-rpath=$(HTSLIB_DIR) -o $@ $^ -lhts -lz 
-
-fetcher_test: $(DRIVER_C)
-	gcc -L/home/lairdm/src/htslib -I/home/lairdm/src/htslib -Wl,-rpath=/home/lairdm/src/htslib -o $@ $^ -lhts -lz
 
 clean:
 	rm -rf *.o *.so *.lo *.slo *.la *.a .libs
