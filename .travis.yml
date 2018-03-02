@@ -16,7 +16,7 @@ addons:
     packages:
       - apache2-prefork-dev
       - apache2-mpm-prefork
-      - libapr1-devel
+      - libapr1-dev
       - curl
       - ruby-dev
       - lcov
