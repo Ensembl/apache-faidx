@@ -50,7 +50,7 @@ def compare(v1, v2, msg=None):
     if v1 == v2:
         return True
     else:
-        print("Test: {}, got: {}, expected: {}".format(msg, v1, v2), file=sys.stderr)
+        print("Test: {}, got: {}, expected: {}".format(msg, v1, v2))
         failures += 1
         return False
 
@@ -175,7 +175,7 @@ if __name__ == "__main__":
     test_translate()
 
     if failures > 0:
-        print( "{} tests failed".format(failures), file=sys.stderr )
+        print( "{} tests failed".format(failures) )
         sys.exit(-1)
     else:
         print( "All tests successful" )

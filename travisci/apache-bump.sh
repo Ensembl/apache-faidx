@@ -22,7 +22,8 @@ sleep 2
 ps auxww|grep [a]pache2
 
 # Batch one of calls
-python ../test/api_test.py
+echo "Batch one"
+python ${APACHE_FAIDX_DIR}/test/api_test.py
 rc=$?; if [[ $rc != 0 ]]; then exit $rc; fi
 
 apachectl -k graceful
@@ -31,7 +32,8 @@ sleep 2
 ls -l ${APACHE_FAIDX_DIR}/.libs/
 
 # Batch two of calls
-python ../test/api_test.py
+echo "Batch two"
+python ${APACHE_FAIDX_DIR}/test/api_test.py
 rc=$?; if [[ $rc != 0 ]]; then exit $rc; fi
 
 apachectl -k graceful
@@ -40,7 +42,8 @@ sleep 2
 ls -l ${APACHE_FAIDX_DIR}/.libs/
 
 # Batch three of calls
-python ../test/api_test.py
+echo "Batch three"
+python ${APACHE_FAIDX_DIR}/test/api_test.py
 rc=$?; if [[ $rc != 0 ]]; then exit $rc; fi
 
 # Stop apache so it writes out the coverall output
