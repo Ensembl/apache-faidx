@@ -149,7 +149,6 @@ def test_translate():
     compare( get_endpoint(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846?translate=1", extra_headers={ "Range": "554-584,657-686" }), "NEICQSEKDKCVVTNHMSLLX", "Testing multi-range translation" )
 
     compare( get_endpoint(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846?translate=1", extra_headers={ "Range": "554-585,666-697" }), "NEICQSEKDKYKPHESLNVREX", "Testing multi-range translate, different frame" )
-    compare( get_endpoint(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846?translate=1", extra_headers={ "Range": "554-585,666-697" }), "NEICQSEKDKYKPHESLNVRE", "Testing multi-range translate, different frame" )
 
 
 if __name__ == "__main__":
