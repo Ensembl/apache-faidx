@@ -32,7 +32,7 @@ tail /tmp/error.log
 
 # Batch one of calls
 echo "Batch one"
-python ${APACHE_FAIDX_DIR}/test/api_test.py
+python ${APACHE_FAIDX_DIR}/test/api_test.py http://localhost:8000
 
 apachectl -k graceful
 sudo sync
@@ -41,7 +41,7 @@ ls -l ${APACHE_FAIDX_DIR}/.libs/
 
 # Batch two of calls
 echo "Batch two"
-python ${APACHE_FAIDX_DIR}/test/api_test.py
+python ${APACHE_FAIDX_DIR}/test/api_test.py http://localhost:8000
 
 apachectl -k graceful
 sudo sync
@@ -50,7 +50,7 @@ ls -l ${APACHE_FAIDX_DIR}/.libs/
 
 # Batch three of calls
 echo "Batch three"
-python ${APACHE_FAIDX_DIR}/test/api_test.py
+python ${APACHE_FAIDX_DIR}/test/api_test.py http://localhost:8000
 
 # Stop apache so it writes out the coverall output
 apachectl -k stop

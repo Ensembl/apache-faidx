@@ -156,6 +156,9 @@ if __name__ == "__main__":
     Test the REST API
     """
 
+    if len(sys.argv) > 1:
+        test_server = sys.argv[1]
+
     failures = False
 
     test_bulk()
