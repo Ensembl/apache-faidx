@@ -20,6 +20,7 @@ sudo sed -i -e 's@/var/run/apache2@/tmp@g' /etc/apache2/envvars
 sudo sync
 sleep 5
 ps auxww|grep [a]pache2
+tail /var/log/apache2/error.log
 
 # Batch one of calls
 echo "Batch one"
