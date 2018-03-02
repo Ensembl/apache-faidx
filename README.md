@@ -41,7 +41,7 @@ curl -v -N -H "Accept: text/x-fasta" "http://localhost/faidx/FFFFFFFF?range=2000
 curl -v -N -H "Accept: text/x-fasta" "http://localhost/faidx/md5/FFFFFFFF?range=2000-3000,11000-12000&strand=-1&translate=1"
 curl -v -N -H "Accept: text/x-fasta" "http://localhost/faidx/FFFFFFFF"
 
-curl "http://localhost/faidx/FFFFFFFF?rangen=12:43768112-43768272,43771220-43771365,43772180-43772362,43772912-43773042,43773045-43773072,43773965-43773971" (IRAK4, ENST00000448290.6)
+curl "http://localhost/faidx/FFFFFFFF?range=12:43768112-43768272,43771220-43771365,43772180-43772362,43772912-43773042,43773045-43773072,43773965-43773971" (IRAK4, ENST00000448290.6)
 curl "http://localhost/faidx/FFFFFFFF?range=12:43768112-43768272,43771220-43771365,43772180-43772362,43772912-43773042,43773045-43773072,43773965-43773971&translate=1" (IRAK4, ENSP00000390651.3)
 curl -H "Accept: text/x-fasta" http://localhost/faidx/FFFFFFFF
 ```
