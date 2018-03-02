@@ -37,10 +37,10 @@ before_install:
 
 install:  
   - export APACHE_FAIDX_DIR=$(pwd -P)
-  - sed -i -e 's@APACHE_FAIDX_DIR@'$APACHE_FAIDX_DIR'@g' t/faidx.conf
-  - sed -i -e 's@APACHE_FAIDX_DIR@'$APACHE_FAIDX_DIR'@g' t/faidx_coveralls.load
-  - if [[ "$COVERALLS" == "true" ]]; then sudo ln -s $(pwd -P)/t/faidx_coveralls.load /etc/apache2/mods-enabled/faidx.load; else sudo ln -s $(pwd -P)/t/faidx.load /etc/apache2/mods-enabled/; fi
-  - sudo ln -s $(pwd -P)/t/faidx.conf /etc/apache2/mods-enabled/
+  - sed -i -e 's@APACHE_FAIDX_DIR@'$APACHE_FAIDX_DIR'@g' travisci/faidx.conf
+  - sed -i -e 's@APACHE_FAIDX_DIR@'$APACHE_FAIDX_DIR'@g' travisci/faidx_coveralls.load
+  - if [[ "$COVERALLS" == "true" ]]; then sudo ln -s $(pwd -P)/travisci/faidx_coveralls.load /etc/apache2/mods-enabled/faidx.load; else sudo ln -s $(pwd -P)/travisci/faidx.load /etc/apache2/mods-enabled/; fi
+  - sudo ln -s $(pwd -P)/travisci/faidx.conf /etc/apache2/mods-enabled/
   - ls -l /etc/apache2/mods-enabled/
   - if [[ "$COVERALLS" == "true" ]]; then lcov --directory . --zerocounters; fi
   - if [[ "$COVERALLS" == "true" ]]; then make apmodule_coveralls; else make apmodule_debug; fi

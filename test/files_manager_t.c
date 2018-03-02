@@ -22,8 +22,8 @@
 
 #include "test_harness.h"
 
-char* cat = INSERT_DATA_PATH "t/data-files/Felis_catus.Felis_catus_6.2.dna.sample.fa";
-char* human = INSERT_DATA_PATH "t/data-files/Homo_sapiens.sample.fa.gz";
+char* cat = INSERT_DATA_PATH "test/data-files/Felis_catus.Felis_catus_6.2.dna.sample.fa";
+char* human = INSERT_DATA_PATH "test/data-files/Homo_sapiens.sample.fa.gz";
 
 /*
   Test the files_manager interface

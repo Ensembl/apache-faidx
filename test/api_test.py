@@ -8,7 +8,7 @@ import hashlib
 import sys
 
 test_server = "http://localhost"
-fasta_path = os.path.join( os.path.abspath(__file__), "../t/data-files/")
+fasta_path = os.path.join( os.path.abspath(__file__), "../test/data-files/")
 failures = 0
 
 def get_endpoint(server, request, content_type='text/plain', extra_headers=None):
