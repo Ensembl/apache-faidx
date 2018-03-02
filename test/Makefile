@@ -2,7 +2,7 @@
 APR_CONFIG=$(shell which apr-config)
 
 INCDIR=../include
-REFSEQ_LIB=../librefseq.a
+REFSEQ_LIB=../src/librefseq.a
 
 TARGETS = files_manager_t htslib_fetcher_t
 MAKEFILE_PATH=$(dir $(realpath $(firstword $(MAKEFILE_LIST))))
@@ -15,7 +15,7 @@ CXXFLAGS=$(shell ${APR_CONFIG} --cflags --cppflags --includes) -I$(INCDIR) -Wall
 LDFLAGS=$(shell ${APR_CONFIG} --ldflags)
 LDLIBS=-L$(HTSLIB_DIR) -lhts -lz $(shell ${APR_CONFIG} --libs --link-ld) -lcrypto
 
-DEPS = $(wildcard $INCDIR/*.h) $(REFSEQ_LIB) test_harness.o
+DEPS = $(wildcard $INCDIR/*.h) test_harness.o
 
 all: $(TARGETS)
 test: check
@@ -26,6 +26,7 @@ $(TARGETS) : % : %.o $(DEPS)
 	@echo Testing $@
 	gcc $@.o test_harness.o $(REFSEQ_LIB) $(LDFLAGS) $(LDLIBS) -Wl,-rpath=$(HTSLIB_DIR) -o $@
 	./$@
+	@echo
 
 %.o: %.c
 	gcc -fPIC -DDATAFILE_PATH="$(MAKEFILE_PATH)../" $(CFLAGS) -Wl,-rpath=$(HTSLIB_DIR) -g -c -o $@ $<

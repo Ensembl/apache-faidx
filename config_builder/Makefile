@@ -2,7 +2,7 @@
 APR_CONFIG=$(shell which apr-config)
 
 INCDIR=../include
-REFSEQ_LIB=../librefseq.a
+REFSEQ_LIB=../src/librefseq.a
 
 TARGET=config_builder
 
@@ -16,11 +16,12 @@ CXXFLAGS=$(shell ${APR_CONFIG} --cflags --cppflags --includes) -I$(INCDIR) -Wall
 LDFLAGS=$(shell ${APR_CONFIG} --ldflags)
 LDLIBS=-L$(HTSLIB_DIR) -lhts -lz $(shell ${APR_CONFIG} --libs --link-ld) -lcrypto
 
-DEPS = $(wildcard $INCDIR/*.h) $(REFSEQ_LIB)
+DEPS = $(wildcard $INCDIR/*.h)
 
 all: $(TARGET)
 
 config_builder: $(TARGET).o $(DEPS)
+	gcc $@.o $(REFSEQ_LIB) $(LDFLAGS) $(LDLIBS) -Wl,-rpath=$(HTSLIB_DIR) -o $@
 
 %.o: %.c
 	gcc -fPIC -DDATAFILE_PATH="$(MAKEFILE_PATH)../" $(CFLAGS) -Wl,-rpath=$(HTSLIB_DIR) -g -c -o $@ $<
