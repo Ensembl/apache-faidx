@@ -18,13 +18,12 @@ sudo sed -i -e 's@/var/run/apache2@/tmp@g' /etc/apache2/envvars
 # Start a single tread as the travis user
 (. /etc/apache2/envvars; /usr/sbin/apache2 -X)&
 sudo sync
-sleep 2
+sleep 5
 ps auxww|grep [a]pache2
 
 # Batch one of calls
 echo "Batch one"
 python ${APACHE_FAIDX_DIR}/test/api_test.py
-rc=$?; if [[ $rc != 0 ]]; then exit $rc; fi
 
 apachectl -k graceful
 sudo sync
@@ -34,17 +33,15 @@ ls -l ${APACHE_FAIDX_DIR}/.libs/
 # Batch two of calls
 echo "Batch two"
 python ${APACHE_FAIDX_DIR}/test/api_test.py
-rc=$?; if [[ $rc != 0 ]]; then exit $rc; fi
 
 apachectl -k graceful
 sudo sync
-sleep 2
+sleep 5
 ls -l ${APACHE_FAIDX_DIR}/.libs/
 
 # Batch three of calls
 echo "Batch three"
 python ${APACHE_FAIDX_DIR}/test/api_test.py
-rc=$?; if [[ $rc != 0 ]]; then exit $rc; fi
 
 # Stop apache so it writes out the coverall output
 apachectl -k stop
