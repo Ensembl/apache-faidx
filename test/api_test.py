@@ -12,7 +12,7 @@ fasta_path = os.path.join( os.path.abspath(__file__), "../t/data-files/")
 failures = 0
 
 def get_endpoint(server, request, content_type='text/plain', extra_headers=None):
-    r = get(server, request, content_type, extra_headers)
+    r = get(server, request, content_type, extra_headers, die_on_errors=False)
 
     if r.headers['content-type'] != content_type:
         print("Content-type mismatch, got {}, expected {}".format(r.headers['content-type'],
