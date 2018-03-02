@@ -43,7 +43,7 @@ install:
   - sudo ln -s $(pwd -P)/t/faidx.conf /etc/apache2/mods-enabled/
   - ls -l /etc/apache2/mods-enabled/
   - if [[ "$COVERALLS" == "true" ]]; then lcov --directory . --zerocounters; fi
-  - if [[ "$COVERALLS" == "true" ]]; then make coveralls; else make apmodule_debug; fi
+  - if [[ "$COVERALLS" == "true" ]]; then make apmodule_coveralls; else make apmodule_debug; fi
   - if [[ "$COVERALLS" == "true" ]]; then touch ${APACHE_FAIDX_DIR}/.libs/mod_faidx.gcda && chmod 666 ${APACHE_FAIDX_DIR}/.libs/mod_faidx.gcda && sudo chown root.root ${APACHE_FAIDX_DIR}/.libs/mod_faidx.gcda; fi
   - if [[ "$COVERALLS" == "false" ]]; then sudo make install; fi
   - ls -la ${APACHE_FAIDX_DIR}/.libs/
