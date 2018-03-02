@@ -26,9 +26,8 @@ cat /etc/apache2/envvars
 # Start a single tread as the travis user
 (. /etc/apache2/envvars; /usr/sbin/apache2 -X)&
 sudo sync
-sleep 5
+sleep 10
 ps auxww|grep [a]pache2
-tail /var/log/apache2/error.log
 tail /tmp/error.log
 
 # Batch one of calls
