@@ -17,6 +17,9 @@ sudo sed -i -e 's@/var/log/apache2@/tmp@g' /etc/apache2/envvars
 sudo sed -i -e 's@/var/lock/apache2@/tmp@g' /etc/apache2/envvars
 sudo sed -i -e 's@/var/run/apache2@/tmp@g' /etc/apache2/envvars
 
+sudo a2dismod mpm_event
+sudo a2denod mpm_prefork
+
 echo "env variables"
 cat /etc/apache2/envvars
 
