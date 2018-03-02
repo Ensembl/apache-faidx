@@ -32,7 +32,7 @@ before_install:
   - sudo ldconfig
   - which gem
   - gem install coveralls-lcov
-  - pip install requests
+  - pip install --user requests
 
 install:  
   - export APACHE_FAIDX_DIR=$(pwd -P)
