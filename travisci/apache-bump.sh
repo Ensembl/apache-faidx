@@ -17,6 +17,9 @@ sudo sed -i -e 's@/var/log/apache2@/tmp@g' /etc/apache2/envvars
 sudo sed -i -e 's@/var/lock/apache2@/tmp@g' /etc/apache2/envvars
 sudo sed -i -e 's@/var/run/apache2@/tmp@g' /etc/apache2/envvars
 
+echo "env variables"
+cat /etc/apache2/envvars
+
 # Start a single tread as the travis user
 (. /etc/apache2/envvars; /usr/sbin/apache2 -X)&
 sudo sync
