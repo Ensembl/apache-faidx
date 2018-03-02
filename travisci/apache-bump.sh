@@ -23,6 +23,7 @@ sudo sync
 sleep 5
 ps auxww|grep [a]pache2
 tail /var/log/apache2/error.log
+tail /tmp/error.log
 
 # Batch one of calls
 echo "Batch one"
