@@ -34,7 +34,7 @@ config_builder: $(DEPS) lib
 	cd config_builder && $(MAKE) config_builder
 
 install: apmodule
-	apxs2 -i -n faidx .libs/mod_faidx.so
+	apxs2 -i -n faidx src/.libs/mod_faidx.so
 
 lib: $(MODULE_SRCS)
 	cd src && $(MAKE) lib
