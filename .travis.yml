@@ -44,13 +44,13 @@ install:
   - ls -l /etc/apache2/mods-enabled/
   - if [[ "$COVERALLS" == "true" ]]; then lcov --directory . --zerocounters; fi
   - if [[ "$COVERALLS" == "true" ]]; then make apmodule_coveralls; else make apmodule_debug; fi
-  - if [[ "$COVERALLS" == "true" ]]; then touch ${APACHE_FAIDX_DIR}/.libs/mod_faidx.gcda && chmod 666 ${APACHE_FAIDX_DIR}/.libs/mod_faidx.gcda && sudo chown root.root ${APACHE_FAIDX_DIR}/.libs/mod_faidx.gcda; fi
+  - if [[ "$COVERALLS" == "true" ]]; then touch ${APACHE_FAIDX_DIR}/src/.libs/mod_faidx.gcda && chmod 666 ${APACHE_FAIDX_DIR}/src/.libs/mod_faidx.gcda && sudo chown root.root ${APACHE_FAIDX_DIR}/src/.libs/mod_faidx.gcda; fi
   - if [[ "$COVERALLS" == "false" ]]; then sudo make install; fi
-  - ls -la ${APACHE_FAIDX_DIR}/.libs/
+  - ls -la ${APACHE_FAIDX_DIR}/src/.libs/
   - if [[ "$COVERALLS" == "true" ]]; then sudo apache2ctl stop; else sudo apache2ctl restart; fi
 #  - if [[ "$COVERALLS" == "true" ]]; then apachectl -V; fi
 #  - if [[ "$COVERALLS" == "true" ]]; then (sudo sh -c '. /etc/apache2/envvars; /usr/sbin/apache2 -X')& fi
-  - ls -la ${APACHE_FAIDX_DIR}/.libs/
+  - ls -la ${APACHE_FAIDX_DIR}/src/.libs/
 
 script:
   - if [[ "$COVERALLS" == "true" ]]; then bash ${APACHE_FAIDX_DIR}/travisci/apache-bump.sh; fi
@@ -66,7 +66,7 @@ after_success:
   - if [[ "$COVERALLS" == "true" ]]; then lcov --remove coverage.info 'test/*' '/usr/*' --output-file coverage.info; fi
   - if [[ "$COVERALLS" == "true" ]]; then lcov --list coverage.info; fi
   - if [[ "$COVERALLS" == "true" ]]; then coveralls-lcov --repo-token IbjuGpUJYB200lTWp8YQsRSwMBEDx9133 coverage.info; fi
-  - ls -la ${APACHE_FAIDX_DIR}/.libs/
+  - ls -la ${APACHE_FAIDX_DIR}/src/.libs/
   - ps auxww
   - sudo cat /var/log/apache2/error.log
 
