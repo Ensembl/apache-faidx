@@ -1,1 +1,1 @@
-LoadModule faidx_module APACHE_FAIDX_DIR/.libs/mod_faidx.so
+LoadModule faidx_module APACHE_FAIDX_DIR/src/.libs/mod_faidx.so
