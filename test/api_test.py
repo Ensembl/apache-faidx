@@ -76,13 +76,13 @@ def compare(v1, v2, msg=None):
 def test_bulk():
     print( "Testing bulk download of sequences" )
 
-    compare( hashlib.md5(get_endpoint(test_server, "/faidx/2648ae1bacce4ec4b6cf337dcae37816")).hexdigest(), "4f22edfae8576e50c8b1655f4e7312f3", "Bulk download of human chromosome 1 via md5 didn't match expected" )
+    compare( hashlib.md5(get_endpoint(test_server, "/faidx/4f22edfae8576e50c8b1655f4e7312f3")).hexdigest(), "4f22edfae8576e50c8b1655f4e7312f3", "Bulk download of human chromosome 1 via md5 didn't match expected" )
 
     compare( hashlib.md5(get_endpoint(test_server, "/faidx/7a822d9b74b1b6c6221bda37bfcdbf426e94f4cf")).hexdigest(), "7bc26323ccba8d6ddcb078711e0b28cc", "Bulk download of cat chromosome A1 via sha1 didn't match expected" )
 
     compare( hashlib.md5(get_endpoint(test_server, "/faidx/9276c9a0e30e84b5ae5042efe33732aeb48d231ed8ddd6721a2559da251de11f")).hexdigest(), "83b02c391f9109ea4d5106bce5fce846", "Bulk download of cat chromosome A2 via sha256 didn't match expected" )
 
-    compare( hashlib.md5(get_endpoint(test_server, "/faidx/d989dea4a33b3a40683ab2a6bc76c6aa0b957c5f5a982493bef47b4201986ccfa66388456eba09adee859dfd172c7b9f4181dd4d129a54c48a5112d6db50ea91")).hexdigest(), "4f22edfae8576e50c8b1655f4e7312f3", "Bulk download of human chromosome 1 via sha512 didn't match expected" )
+    compare( hashlib.md5(get_endpoint(test_server, "/faidx/68756d5ad9f99e4e9c2d2badce17cbc947079b4083a865685be09816d2f0f1570cdc9c64649615831f2acc2a5b8dbf4a5cdc4084af1f832e066e98765a8a0f4b")).hexdigest(), "4f22edfae8576e50c8b1655f4e7312f3", "Bulk download of human chromosome 1 via sha512 didn't match expected" )
 
     compare( hashlib.md5(get_endpoint(test_server, "/faidx/7a822d9b74b1b6c6221bda37bfcdbf426e94f4cf", content_type='text/x-fasta')).hexdigest(), "2698dc276a70b288700100908bb94c6f", "Bulk download of cat chromosome A1 via sha1 in FASTA didn't match expected" )
 
