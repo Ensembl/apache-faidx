@@ -616,6 +616,7 @@ const int mod_Faidx_create_iterator(request_rec* r, mod_Faidx_svr_cfg* svr, apr_
   if(apr_hash_get(formdata, "range", APR_HASH_KEY_STRING)) {
     ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, "RANGE");
     locs = apr_psprintf(r->pool, "%s:%d", (char*)apr_hash_get(formdata, "range", APR_HASH_KEY_STRING), strand);
+    r->status = HTTP_PARTIAL_CONTENT;
   }
 
   if(apr_hash_get(formdata, "start", APR_HASH_KEY_STRING) || apr_hash_get(formdata, "end", APR_HASH_KEY_STRING)) {
@@ -648,7 +649,7 @@ const int mod_Faidx_create_iterator(request_rec* r, mod_Faidx_svr_cfg* svr, apr_
 
     /* We don't support circular chromosomes */
     if(start > end) {
-      return HTTP_BAD_REQUEST;
+      return HTTP_NOT_IMPLEMENTED;
     }
 
     ensembl_coords = 1;

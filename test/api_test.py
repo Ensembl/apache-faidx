@@ -34,8 +34,8 @@ def get_endpoint(server, request, content_type='text/plain', extra_headers=None)
     r = get(server, request, content_type, extra_headers, die_on_errors=False)
 
     if r.headers['content-type'] != content_type:
-        print("Content-type mismatch, got {}, expected {}".format(r.headers['content-type'],
-                                                                  content_type))
+        print("Content-type mismatch, got {}, expected {}, url: {}".format(r.headers['content-type'],
+                                                                           content_type, server + request))
         sys.exit(-1)
 
     if content_type == 'application/json':
@@ -47,6 +47,11 @@ def get_status_code(server, request, content_type='text/plain', extra_headers=No
     r = get(server, request, content_type, extra_headers, die_on_errors=False)
 
     return r.status_code
+
+def get_content_type(server, request, content_type='text/plain', extra_headers=None):
+    r = get(server, request, content_type, extra_headers, die_on_errors=False)
+
+    return r.headers['content-type']
 
 def get(server, request, content_type='text/plain', extra_headers=None, die_on_errors=True):
     """
@@ -110,17 +115,19 @@ def test_querystring():
 def test_range():
     print( "Testing range query" )
 
-    compare( get_endpoint(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846", extra_headers={ "Range": "1-10" }), "CCGTACCAGC", "Testing Range 1-10" )
+    compare( get_endpoint(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846", extra_headers={ "Range": "0-10" }), "CCGTACCAGCA", "Testing Range 0-10" )
 
-    compare( get_endpoint(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846", extra_headers={ "Range": "10-10" }), "C", "Testing Ranf 10-10" )
+    compare( get_endpoint(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846", extra_headers={ "Range": "1-10" }), "CGTACCAGCA", "Testing Range 1-10" )
 
-    compare( get_endpoint(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846", extra_headers={ "Range": "10-11" }), "CA", "Testing Range 10-11" )
+    compare( get_endpoint(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846", extra_headers={ "Range": "10-10" }), "A", "Testing Range 10-10" )
 
-    compare( get_endpoint(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846", extra_headers={ "Range": "3770-3780" }), "AAATACGTACA", "Testing Range 3770-3780, end of sequence" )
+    compare( get_endpoint(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846", extra_headers={ "Range": "10-11" }), "AG", "Testing Range 10-11" )
 
-    compare( get_endpoint(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846", extra_headers={ "Range": "3770-3779" }), "AAATACGTAC", "Testing Range 3770-3779" )
+    compare( get_endpoint(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846", extra_headers={ "Range": "3770-3779" }), "AATACGTACA", "Testing Range 3770-3779, end of sequence" )
 
-    compare( get_endpoint(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846", extra_headers={ "Range": "3780-3780" }), "A", "Testing Range 3780-3780, last base in sequence" )
+    compare( get_endpoint(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846", extra_headers={ "Range": "3770-3778" }), "AATACGTAC", "Testing Range 3770-3778" )
+
+    compare( get_endpoint(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846", extra_headers={ "Range": "3779-3779" }), "A", "Testing Range 3780-3780, last base in sequence" )
 
 def test_metadata():
     print( "Testing metadata endpoint" )
@@ -132,31 +139,51 @@ def test_metadata():
 def test_multi_range():
     print( "Testing multiple ranges" )
 
-    compare( get_endpoint(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846", extra_headers={ "Range": "1-10,3770-3780" }), "CCGTACCAGCAAATACGTACA", "Testing Range 1-10,3770-3780" )
+    compare( get_endpoint(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846", extra_headers={ "Range": "0-10,3770-3779" }), "CCGTACCAGCAAATACGTACA", "Testing Range 0-10,3770-3779" )
 
 def test_strand():
     print( "Testing stand parameter" )
 
-    compare( get_endpoint(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846?strand=1", extra_headers={ "Range": "3770-3780" }), "AAATACGTACA", "Testing Range 3770-3780, forward strand" )
+    compare( get_endpoint(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846?strand=1", extra_headers={ "Range": "3770-3779" }), "AATACGTACA", "Testing Range 3770-3779, forward strand" )
 
-    compare( get_endpoint(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846?strand=-1", extra_headers={ "Range": "3770-3780" }), "TGTACGTATTT", "Testing Range 3770-3780, reverse strand" )
+    compare( get_endpoint(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846?strand=-1", extra_headers={ "Range": "3770-3779" }), "TGTACGTATT", "Testing Range 3770-3779, reverse strand" )
 
-    compare( get_endpoint(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846?start=0&end=10&strand=-1"), "GCTGGTACGG", "Range starting at 0" )
+    compare( get_endpoint(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846?start=0&end=10&strand=-1"), "GCTGGTACGG", "Testing start=0, end=10, reverse stand" )
 
-    compare( get_endpoint(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846?start=1&end=10&strand=-1"), "GCTGGTACG", "Testing start=1, end=10" )
+    compare( get_endpoint(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846?start=1&end=10&strand=-1"), "GCTGGTACG", "Testing start=1, end=10, reverse strand" )
 
 def test_errors():
     print( "Testing error codes" )
 
     compare( get_status_code(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846", content_type='application/json'), 200, "Checking for 200 status" ) 
 
+    compare( get_status_code(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846", content_type='application/json', extra_headers={ "Range": "1-10" }), 206, "Checking for 206 on Range" ) 
+
     compare( get_status_code(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846?start=10&end=10", content_type='application/json'), 400, "Checking for 400 status, invalid start/end" ) 
 
-    compare( get_status_code(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846?start=20&end=10", content_type='application/json'), 400, "Checking for start > end" ) 
+    compare( get_status_code(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846?start=20&end=10", content_type='application/json'), 501, "Checking for start > end" ) 
 
     compare( get_status_code(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846?start=10&end=10", content_type='application/json', extra_headers={ "Range": "1-10" }), 400, "Checking for Range and start/end" ) 
 
     compare( get_status_code(test_server, "/faidx/kwijibo", content_type='application/json'), 404, "Checking for invalid checksum" ) 
+
+    compare( get_status_code(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846", content_type='application/embl'), 416, "Checking for invalid content-type on sequence" ) 
+
+    compare( get_status_code(test_server, "/faidx/metadata/83b02c391f9109ea4d5106bce5fce846"), 416, "Checking for invalid content-type on metadata, sending text/plain" ) 
+
+def test_content_type():
+    print( "Testing content-types" )
+
+    compare( get_content_type(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846", content_type='application/json'), "application/json", "Checking sequence endpoint for application/json" ) 
+
+    compare( get_content_type(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846"), "text/vnd.ga4gh.seq.v1.0.0+plain", "Checking sequence endpoint for text/vnd.ga4gh.seq.v1.0.0+plain, sending text/plain" ) 
+
+    compare( get_content_type(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846", content_type='text/vnd.ga4gh.seq.v1.0.0+plain'), "text/vnd.ga4gh.seq.v1.0.0+plain", "Checking sequence endpoint for text/vnd.ga4gh.seq.v1.0.0+plain, sending same" ) 
+
+    compare( get_content_type(test_server, "/faidx/metadata/83b02c391f9109ea4d5106bce5fce846", content_type='application/json'), "application/vnd.ga4gh.seq.v1.0.0+json", "Checking metadata endpoint for application/vnd.ga4gh.seq.v1.0.0+json, sending applicaiton/json" ) 
+
+    compare( get_content_type(test_server, "/faidx/metadata/83b02c391f9109ea4d5106bce5fce846", content_type='application/vnd.ga4gh.seq.v1.0.0+json'), "application/vnd.ga4gh.seq.v1.0.0+json", "Checking metadata endpoint for application/vnd.ga4gh.seq.v1.0.0+json, sending same" ) 
+
 
 def test_translate():
     print( "Testing translating" )
@@ -193,6 +220,8 @@ if __name__ == "__main__":
     test_strand()
 
     test_errors()
+
+    test_content_type()
 
     test_translate()
 
