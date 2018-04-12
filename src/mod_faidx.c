@@ -369,7 +369,10 @@ static int Faidx_handler(request_rec* r) {
      also only makes sense to set this header if we're sending as plain text.
      NOTE: Depending how multi-seq for POST is handed, we might need to tweak this
      with the CR between the seqs (my preferred wat to delimit the sequences) */
-  if(accept == CONTENT_TEXT && total_seq_length <= CHUNK_SIZE) {
+  if(accept == CONTENT_TEXT) {
+    /* Is this going to increase total memory footprint? Does Apache actually
+       send and flush the buffer when we say? Or is it truly sending chunked encoding? */
+    //  if(accept == CONTENT_TEXT && total_seq_length <= CHUNK_SIZE) {
     ap_set_content_length(r, total_seq_length);
   }
 
