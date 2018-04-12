@@ -120,6 +120,7 @@ static int Faidx_handler(request_rec* r) {
   char* h_buf;
   int buf_remaining;
   int flushed = 0;
+  unsigned int total_seq_length = 0;
 
 #ifdef DEBUG
       ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
@@ -153,6 +154,10 @@ static int Faidx_handler(request_rec* r) {
     accept = CONTENT_FASTA;
   } else if(val && (strcasestr(val,
 			       "application/json")
+		    != NULL)) {
+    accept = CONTENT_JSON;
+  } else if(val && (strcasestr(val,
+			       "application/vnd.ga4gh.seq.v1.0.0+json")
 		    != NULL)) {
     accept = CONTENT_JSON;
   } else {
@@ -271,6 +276,8 @@ static int Faidx_handler(request_rec* r) {
 
     if(siterator == NULL) return HTTP_INTERNAL_SERVER_ERROR;
 
+    total_seq_length = tark_iterator_remaining(siterator, siterator->translate);
+
     /* If we've reached this point we must have an iterator and be ready to
        send back sequence. Make a copy in to the request pool and free the
        malloc'ed one from the external library. */
@@ -323,9 +330,9 @@ static int Faidx_handler(request_rec* r) {
   if(accept == CONTENT_FASTA) {
     ap_set_content_type(r, "text/x-fasta");
   } else if(accept == CONTENT_JSON) {
-    ap_set_content_type(r, "application/json");
+    ap_set_content_type(r, "application/vnd.ga4gh.seq.v1.0.0+json");
   } else {
-    ap_set_content_type(r, "text/plain");
+    ap_set_content_type(r, "text/vnd.ga4gh.seq.v1.0.0+plain;charset=us-ascii");
   }
 
 
@@ -356,8 +363,18 @@ static int Faidx_handler(request_rec* r) {
     }
   }
 
+  /* We want to set the content-length header if the sequence length is below the
+     send buffer size (CHUNK_SIZE). For GET this is the seq length for the one and
+     only iterator. For POST this will be the sum of all the iterators. However it
+     also only makes sense to set this header if we're sending as plain text.
+     NOTE: Depending how multi-seq for POST is handed, we might need to tweak this
+     with the CR between the seqs (my preferred wat to delimit the sequences) */
+  if(accept == CONTENT_TEXT && total_seq_length <= CHUNK_SIZE) {
+    ap_set_content_length(r, total_seq_length);
+  }
+
   /* Loop through the locations, and start sending. We're behaving like
-     a type writer, we'll keep filling the send buffer, then flush when
+     a typewriter, we'll keep filling the send buffer, then flush when
      full. This allows us to chunk if needed or set the content. */
   while(aiterator = (seq_iterator_t**)apr_array_pop(location_iterators)) {
     siterator = *aiterator;
@@ -737,7 +754,7 @@ int metadata_handler(request_rec* r, const char* checksum, checksum_obj* checksu
   mod_Faidx_svr_cfg* svr = NULL;
   seq_file_t* seqfile;
 
-  ap_set_content_type(r, "application/json");
+  ap_set_content_type(r, "application/vnd.ga4gh.seq.v1.0.0+json");
 
   svr = ap_get_module_config(r->server->module_config, &faidx_module);
   seqfile = files_mgr_use_seqfile(svr->files, checksum_holder->file);
