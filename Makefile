@@ -1,4 +1,8 @@
 
+ifndef HTSLIB_DIR
+  $(error HTSLIB_DIR is undefined, see README.txt for details)
+endif
+
 APR_CONFIG=$(shell which apr-config)
 
 INCDIR=./include

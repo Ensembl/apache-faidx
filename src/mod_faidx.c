@@ -202,15 +202,23 @@ static int Faidx_handler(request_rec* r) {
 
       /* See if we've been asked for information on the sets */
       if( !strcmp(uri_ptr, "metadata") ) {
-	/* Do and return metadata here */
-	t = METADATA_VERB;
+	if( checksum != NULL ) {
+	  /* Do and return metadata here */
+	  t = METADATA_VERB;
+	  break;
+	} else {
+	  /* We received the metadata verb before the checksum, that's the
+	     old way, error. */
+	  return HTTP_BAD_REQUEST;
+	}
       } else if( svr->labels_endpoints && apr_hash_get(svr->labels, uri_ptr, APR_HASH_KEY_STRING) ) {
 	t = CHECKSUM_VERB;
 	checksum_type = uri_ptr;
       } else if( apr_hash_get(svr->checksums, uri_ptr, APR_HASH_KEY_STRING) ) {
 	checksum = uri_ptr;
-	break;
       }
+      /* Do we want to just put in here anything else besides these
+         expected things is as 404? */
     }
 
     if(checksum == NULL) {
