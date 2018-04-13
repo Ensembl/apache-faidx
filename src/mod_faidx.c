@@ -332,7 +332,7 @@ static int Faidx_handler(request_rec* r) {
   } else if(accept == CONTENT_JSON) {
     ap_set_content_type(r, "application/vnd.ga4gh.seq.v1.0.0+json");
   } else {
-    ap_set_content_type(r, "text/vnd.ga4gh.seq.v1.0.0+plain;charset=us-ascii");
+    ap_set_content_type(r, "text/vnd.ga4gh.seq.v1.0.0+plain; charset=us-ascii");
   }
 
 

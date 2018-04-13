@@ -30,20 +30,15 @@ test_server = "http://localhost"
 fasta_path = os.path.join( os.path.abspath(__file__), "../test/data-files/")
 failures = 0
 
-def get_endpoint(server, request, content_type='text/plain', extra_headers=None):
+def get_endpoint(server, request, content_type='text/vnd.ga4gh.seq.v1.0.0+plain', extra_headers=None):
     r = get(server, request, content_type, extra_headers, die_on_errors=False)
-
-    if r.headers['content-type'] != content_type:
-        print("Content-type mismatch, got {}, expected {}, url: {}".format(r.headers['content-type'],
-                                                                           content_type, server + request))
-        sys.exit(-1)
 
     if content_type == 'application/json':
         return r.json()
     else:
         return r.text
 
-def get_status_code(server, request, content_type='text/plain', extra_headers=None):
+def get_status_code(server, request, content_type='text/vnd.ga4gh.seq.v1.0.0+plain', extra_headers=None):
     r = get(server, request, content_type, extra_headers, die_on_errors=False)
 
     return r.status_code
@@ -53,7 +48,7 @@ def get_content_type(server, request, content_type='text/plain', extra_headers=N
 
     return r.headers['content-type']
 
-def get(server, request, content_type='text/plain', extra_headers=None, die_on_errors=True):
+def get(server, request, content_type='text/vnd.ga4gh.seq.v1.0.0+plain', extra_headers=None, die_on_errors=True):
     """
     GET an endpoint from the server, allow overriding of default Accept content-type
     """
@@ -134,7 +129,7 @@ def test_metadata():
 
     metadata = {u'metadata': {u'length': 3780, u'id': u'83b02c391f9109ea4d5106bce5fce846', u'aliases': [{u'alias': u'83b02c391f9109ea4d5106bce5fce846'}, {u'alias': u'ae8ed143e88166fa345f39df31050bc69545bf2b'}, {u'alias': u'9276c9a0e30e84b5ae5042efe33732aeb48d231ed8ddd6721a2559da251de11f'}, {u'alias': u'181606c58aa6576ed034afdbc76cae5675d8772084099727a2fadf6f1387038a54f8939599d7ed4f8dce238b4d62c441038bc28692023d6a499c4278c6564317'}, {u'alias': u'A2'}]}}
 
-    compare( get_endpoint(test_server, "/faidx/metadata/83b02c391f9109ea4d5106bce5fce846", content_type='application/json'), metadata, "Testing metadata endpoint" )
+    compare( get_endpoint(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846/metadata", content_type='application/json'), metadata, "Testing metadata endpoint" )
 
 def test_multi_range():
     print( "Testing multiple ranges" )
@@ -169,20 +164,20 @@ def test_errors():
 
     compare( get_status_code(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846", content_type='application/embl'), 416, "Checking for invalid content-type on sequence" ) 
 
-    compare( get_status_code(test_server, "/faidx/metadata/83b02c391f9109ea4d5106bce5fce846"), 416, "Checking for invalid content-type on metadata, sending text/plain" ) 
+    compare( get_status_code(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846/metadata"), 416, "Checking for invalid content-type on metadata, sending text/plain" ) 
 
 def test_content_type():
     print( "Testing content-types" )
 
-    compare( get_content_type(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846", content_type='application/json'), "application/json", "Checking sequence endpoint for application/json" ) 
+    compare( get_content_type(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846", content_type='application/vnd.ga4gh.seq.v1.0.0+json'), "application/vnd.ga4gh.seq.v1.0.0+json", "Checking sequence endpoint for application/vnd.ga4gh.seq.v1.0.0+json" ) 
 
-    compare( get_content_type(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846"), "text/vnd.ga4gh.seq.v1.0.0+plain", "Checking sequence endpoint for text/vnd.ga4gh.seq.v1.0.0+plain, sending text/plain" ) 
+    compare( get_content_type(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846"), "text/vnd.ga4gh.seq.v1.0.0+plain; charset=us-ascii", "Checking sequence endpoint for text/vnd.ga4gh.seq.v1.0.0+plain, sending text/plain" ) 
 
-    compare( get_content_type(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846", content_type='text/vnd.ga4gh.seq.v1.0.0+plain'), "text/vnd.ga4gh.seq.v1.0.0+plain", "Checking sequence endpoint for text/vnd.ga4gh.seq.v1.0.0+plain, sending same" ) 
+    compare( get_content_type(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846", content_type='text/vnd.ga4gh.seq.v1.0.0+plain; charset=us-ascii'), "text/vnd.ga4gh.seq.v1.0.0+plain; charset=us-ascii", "Checking sequence endpoint for text/vnd.ga4gh.seq.v1.0.0+plain, sending same" ) 
 
-    compare( get_content_type(test_server, "/faidx/metadata/83b02c391f9109ea4d5106bce5fce846", content_type='application/json'), "application/vnd.ga4gh.seq.v1.0.0+json", "Checking metadata endpoint for application/vnd.ga4gh.seq.v1.0.0+json, sending applicaiton/json" ) 
+    compare( get_content_type(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846/metadata", content_type='application/vnd.ga4gh.seq.v1.0.0+json,'), "application/vnd.ga4gh.seq.v1.0.0+json", "Checking metadata endpoint for application/vnd.ga4gh.seq.v1.0.0+json, sending applicaiton/json" ) 
 
-    compare( get_content_type(test_server, "/faidx/metadata/83b02c391f9109ea4d5106bce5fce846", content_type='application/vnd.ga4gh.seq.v1.0.0+json'), "application/vnd.ga4gh.seq.v1.0.0+json", "Checking metadata endpoint for application/vnd.ga4gh.seq.v1.0.0+json, sending same" ) 
+    compare( get_content_type(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846/metadata", content_type='application/vnd.ga4gh.seq.v1.0.0+json'), "application/vnd.ga4gh.seq.v1.0.0+json", "Checking metadata endpoint for application/vnd.ga4gh.seq.v1.0.0+json, sending same" ) 
 
 
 def test_translate():
@@ -190,11 +185,11 @@ def test_translate():
 
     compare( get_endpoint(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846?start=554&end=585&translate=1"), "MKYVNQRKTNX", "Testing translating from start/end" )
 
-    compare( get_endpoint(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846?translate=1", extra_headers={ "Range": "655-686" }), "KCGNKPHESLX", "Testing translating from Range" )
+    compare( get_endpoint(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846?translate=1", extra_headers={ "Range": "654-685" }), "KCGNKPHESLX", "Testing translating from Range" )
 
-    compare( get_endpoint(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846?translate=1", extra_headers={ "Range": "554-584,657-686" }), "NEICQSEKDKCVVTNHMSLLX", "Testing multi-range translation" )
+    compare( get_endpoint(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846?translate=1", extra_headers={ "Range": "553-583,656-685" }), "NEICQSEKDKCVVTNHMSLLX", "Testing multi-range translation" )
 
-    compare( get_endpoint(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846?translate=1", extra_headers={ "Range": "554-585,666-697" }), "NEICQSEKDKYKPHESLNVREX", "Testing multi-range translate, different frame" )
+    compare( get_endpoint(test_server, "/faidx/83b02c391f9109ea4d5106bce5fce846?translate=1", extra_headers={ "Range": "553-584,665-696" }), "NEICQSEKDKYKPHESLNVREX", "Testing multi-range translate, different frame" )
 
 
 if __name__ == "__main__":
