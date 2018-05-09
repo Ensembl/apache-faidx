@@ -40,13 +40,14 @@ int main(int argc, const char *argv[]) {
     /* API is data structure driven */
     static const apr_getopt_option_t opt_option[] = {
         /* long-option, short-option, has-arg flag, description */
-        { "fasta",  'f', TRUE,  "fasta input file" },      /* -f name or --fasta name */
-        { "md5",    'm', FALSE, "compute md5" },           /* -m or --md5 */
-        { "sha1",   '1', FALSE, "compute sha1" },          /* -1 or --sha1 */
-        { "sha256", '2', FALSE, "compute sha256" },        /* -2 or --sha256 */
-        { "sha512", '5', FALSE, "compute sha512" },        /* -5 or --sha512 */
-        { "alias",  'a', FALSE, "Add alias lines" },       /* -a or --alias */
-        { "help",   'h', FALSE, "show help" },             /* -h or --help */
+        { "fasta",    'f', TRUE,  "fasta input file" },         /* -f name or --fasta name */
+        { "md5",      'm', FALSE, "compute md5" },              /* -m or --md5 */
+        { "sha1",     '1', FALSE, "compute sha1" },             /* -1 or --sha1 */
+        { "sha256",   '2', FALSE, "compute sha256" },           /* -2 or --sha256 */
+        { "sha512",   '5', FALSE, "compute sha512" },           /* -5 or --sha512 */
+        { "trunc512", 't', FALSE, "compute truncated sha512" }, /* -t or --trunc512 */
+        { "alias",    'a', FALSE, "Add alias lines" },          /* -a or --alias */
+        { "help",     'h', FALSE, "show help" },                /* -h or --help */
         { NULL, 0, 0, NULL }, /* end (a.k.a. sentinel) */
     };
     apr_getopt_t *opt;
@@ -86,9 +87,23 @@ int main(int argc, const char *argv[]) {
 	break;
 
       case '5':
-	digest_ctx->sha512 = apr_pcalloc(mp, sizeof(SHA512_CTX));
-	digest_ctx->sha512_digest = apr_pcalloc(mp, SHA512_DIGEST_LENGTH);
+	if (digest_ctx->sha512 == NULL) {
+	  digest_ctx->sha512 = apr_pcalloc(mp, sizeof(SHA512_CTX));
+	  digest_ctx->sha512_digest = apr_pcalloc(mp, SHA512_DIGEST_LENGTH);
+	}
+	digest_ctx->do_sha512 = 1;
 	break;
+
+      /* Both the sha512 and trunc512 need a sha512 to be calculated. So having
+         sha512 not NULL signals to calculate the checksum, but do_sha512 and
+         do_trunc512 will signal to output either or both digests.
+       */
+      case 't':
+	if (digest_ctx->sha512 == NULL) {
+	  digest_ctx->sha512 = apr_pcalloc(mp, sizeof(SHA512_CTX));
+	  digest_ctx->sha512_digest = apr_pcalloc(mp, SHA512_DIGEST_LENGTH);
+	}
+	digest_ctx->do_trunc512 = 1;
 
       case 'a':
 	aliases = 1;
@@ -251,9 +266,15 @@ void print_digests(digests_t* digest_ctx, const char* seqname) {
     printf("\n");
   }
 
-  if(digest_ctx->sha512 != NULL) {
+  if(digest_ctx->do_sha512) {
     printf("  Seq %s sha512 ", seqname);
     print_digest(digest_ctx->sha512_digest, SHA512_DIGEST_LENGTH);
+    printf("\n");
+  }
+
+  if(digest_ctx->do_trunc512) {
+    printf("  Seq %s trunc512 ", seqname);
+    print_digest(digest_ctx->sha512_digest, TRUNC512_LENGTH);
     printf("\n");
   }
 
@@ -274,6 +295,7 @@ void print_help() {
   printf("-1 or --sha1                         - calculate sha1 checksums\n");
   printf("-2 or --sha256                       - calculate sha256 checksums\n");
   printf("-5 or --sha512                       - calculate sha512 checksums\n");
+  printf("-t or --trunc512                     - calculate truncated sha512 checksums, as defined in the API specification\n");
   printf("-a or --alias                        - add Alias line for sequence name as it appears in fasta file\n");
   printf("-h or --help                         - print this help message\n\n");
 }

@@ -34,6 +34,8 @@
 #define BUFSIZE 1048576
 //#define BUFSIZE 4096
 
+#define TRUNC512_LENGTH 24
+
 typedef struct {
   MD5_CTX* md5;
   unsigned char* md5_digest;
@@ -42,6 +44,8 @@ typedef struct {
   SHA256_CTX* sha256;
   unsigned char* sha256_digest;
   SHA512_CTX* sha512;
+  unsigned int do_sha512;
+  unsigned int do_trunc512;
   unsigned char* sha512_digest;
 } digests_t;
 
