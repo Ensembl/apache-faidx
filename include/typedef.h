@@ -51,6 +51,7 @@
 #define UNKNOWN_VERB 0
 #define METADATA_VERB 1
 #define CHECKSUM_VERB 2
+#define INFO_VERB 3
 
 /* Representation of a sequence in a sequence file */
 typedef struct {

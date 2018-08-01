@@ -216,6 +216,15 @@ static int Faidx_handler(request_rec* r) {
 	     old way, error. */
 	  return HTTP_BAD_REQUEST;
 	}
+      } else if( !strcmp(uri_ptr, "service-info") ) {
+	if( checksum != NULL ) {
+	  /* Do and return server info here */
+	  t = INFO_VERB;
+	  break;
+	} else {
+	  /* service-info has to come before a checksum */
+	  return HTTP_BAD_REQUEST;
+	}
       } else if( svr->labels_endpoints && apr_hash_get(svr->labels, uri_ptr, APR_HASH_KEY_STRING) ) {
 	t = CHECKSUM_VERB;
 	checksum_type = uri_ptr;
@@ -242,9 +251,15 @@ static int Faidx_handler(request_rec* r) {
     }
 
     /* Handle dispatching non-sequence endpoints. Currently we only have
-       metadata, but others could slip in here. */
+       metadata and service-info, but others could slip in here. */
     if(t == METADATA_VERB) {
       return metadata_handler(r, checksum, checksum_holder);
+
+      /* Return here because there's nothing more to do. */
+    }
+
+    if(t == INFO_VERB) {
+      return info_handler(r);
 
       /* Return here because there's nothing more to do. */
     }
@@ -782,6 +797,19 @@ int metadata_handler(request_rec* r, const char* checksum, checksum_obj* checksu
   }
 
   ap_rputs( "\n    ]\n  }\n}\n", r );
+
+  return OK;
+}
+
+int info_handler(request_rec* r) {
+
+  ap_set_content_type(r, "application/json");
+
+  ap_rputs( "{\n  \"service\" : {\n", r );
+  ap_rputs( "    \"circular_supported\" : false,\n", r );
+  ap_rputs( "    \"algorithms\" : [\"md5\", \"trunc512\"],\n", r );
+  ap_rputs( "    \"supported_api_versions\" : [\"0.3\"],\n", r );
+  ap_rputs( "  }\n}\n", r );
 
   return OK;
 }
